@@ -1,0 +1,39 @@
+build/
+tags
+main/kbelf_lib.c
+sdkconfig.old
+*.bak
+*.old
+.vscode
+tools/__pycache__
+.cache
+esp-idf
+esp-idf-tools
+dependencies.lock
+managed_components
+.IDF_PATH
+.IDF_TOOLS_PATH
+shell.nix
+sdkconfig
+.submodules_update_done
+env
+
+# esp-idf/*
+# esp-idf-tools/*
+sdkconfigs
+
+# Ignore cmake products
+CMakeLists.txt.user
+CMakeCache.txt
+CMakeFiles
+CMakeScripts
+Testing
+Makefile
+cmake_install.cmake
+install_manifest.txt
+compile_commands.json
+CTestTestfile.cmake
+_deps
+CMakeUserPresets.json
+
+*.zip

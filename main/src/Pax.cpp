@@ -109,8 +109,8 @@ void Pax::copyColor(uint16_t x0, uint16_t y0, uint16_t w, uint16_t h, uint16_t d
     for (uint16_t y = 0; y < h; y++) {
         for (uint16_t x = 0; x < w; x++) {
             // Rotate 90 degrees clockwise
-            uint16_t dest_x = y0 + y;
-            uint16_t dest_y = display_h_res - 1 - (x0 + x);  // Assuming display_h_res is width
+            uint16_t dest_x                         = y0 + y;
+            uint16_t dest_y                         = x0 + x;  // Assuming display_h_res is width
             raw_fb[dest_y * display_h_res + dest_x] = data;
         }
     }
@@ -135,14 +135,14 @@ void Pax::copyData(uint16_t x0, uint16_t y0, uint16_t w, uint16_t h, uint16_t* d
 }
 
 void Pax::drawFrame(uint16_t frameColor) {
-    if (Pax::border_height > 0) {
-        Pax::copyColor(this->border_width, 0, vic_h_width, this->border_height, frameColor);
-        Pax::copyColor(this->border_width, vic_v_height + this->border_height, 320, this->border_height, frameColor);
-    }
-    if (this->border_width > 0) {
-        Pax::copyColor(0, 0, this->border_width, Config::LCDHEIGHT, frameColor);
-        Pax::copyColor(this->border_width + vic_h_width, 0, this->border_width, Config::LCDHEIGHT, frameColor);
-    }
+    // Top bar
+    Pax::copyColor(border_width, 0, vic_h_width, border_height, frameColor);
+    // Bottom bar
+    Pax::copyColor(border_width, vic_v_height + border_height, vic_h_width, border_height, frameColor);
+    // Left bar
+    Pax::copyColor(0, 0, border_width, display_h_res, frameColor);
+    // Right bar
+    Pax::copyColor(border_width + vic_h_width, 0, border_width, display_h_res, frameColor);
 }
 
 void Pax::drawBitmap(uint16_t* bitmap) {
@@ -154,14 +154,15 @@ void Pax::drawBitmap(uint16_t* bitmap) {
     for (uint16_t y = 0; y < 200; y++) {
         for (uint16_t x = 0; x < 320; x++) {
             // Switch x and y to rotate 90 degrees clockwise
-            size_t   write_pos      = (y_offset - y * 2) + (x_offset + x * 2) * display_h_res;
-            uint16_t c_val          = bitmap[y * 320 + x];
-            raw_fb[write_pos]       = c_val;
-            raw_fb[write_pos + 1]   = c_val;
-            raw_fb[write_pos + display_h_res] = c_val;
+            size_t   write_pos                    = (y_offset - y * 2) + (x_offset + x * 2) * display_h_res;
+            uint16_t c_val                        = bitmap[y * 320 + x];
+            raw_fb[write_pos]                     = c_val;
+            raw_fb[write_pos + 1]                 = c_val;
+            raw_fb[write_pos + display_h_res]     = c_val;
             raw_fb[write_pos + display_h_res + 1] = c_val;
         }
     }
+    raw_fb[0] = 0xff;
     esp_lcd_panel_draw_bitmap(display_lcd_panel, 0, 0, display_h_res, display_v_res, raw_fb);
 }
 

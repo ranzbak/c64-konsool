@@ -51,9 +51,15 @@ In VsCodium this can be done using the following statement in the settings.json
 ]
 ```
 
+## Many many credits for the person who wrote the emulator this is based on
+
+[retrolec](https://github.com/retroelec/T-HMI-C64/commits?author=retroelec)
+
+[T-HMI-C64](https://github.com/retroelec/T-HMI-C64)
+
 ## License & Copyright
 
-Copyright 2025 Nicolai Electronics
+Copyright 2025 Ranzbak Badge.Team
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the “Software”), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so.
 

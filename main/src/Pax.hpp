@@ -16,6 +16,7 @@
  http://www.gnu.org/licenses/.
 */
 
+#include <cstdint>
 #include "Config.hpp"
 #include "DisplayDriver.hpp"
 #include "esp_lcd_types.h"

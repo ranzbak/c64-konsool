@@ -98,7 +98,7 @@ struct Config {
   // DisplayDriver (considering a possible rotation)
   static const uint16_t LCDWIDTH = 0;
   static const uint16_t LCDHEIGHT = 0;
-  static const gpio_num_t REFRESHDELAY = GPIO_NUM_1;
+  static const uint16_t REFRESHDELAY = 10;
 
   // SDCard
   static const gpio_num_t SD_MISO_PIN = GPIO_NUM_13;
@@ -124,13 +124,13 @@ struct Config {
 #endif
 
   // BLEKB
-  static constexpr const char *SERVICE_UUID =
-      "695ba701-a48c-43f6-9028-3c885771f19f";
-  static constexpr const char *CHARACTERISTIC_UUID =
-      "3b05e9bf-086f-4b56-9c37-7b7eeb30b28b";
+  // static constexpr const char *SERVICE_UUID =
+  //     "695ba701-a48c-43f6-9028-3c885771f19f";
+  // static constexpr const char *CHARACTERISTIC_UUID =
+  //     "3b05e9bf-086f-4b56-9c37-7b7eeb30b28b";
 
   // resolution of system timer (throttling 6502 CPU, get BLE KB codes)
-  static const uint16_t INTERRUPTSYSTEMRESOLUTION = 1000;
+  static const uint16_t INTERRUPTSYSTEMRESOLUTION = 50;
 
   // number of "steps" to average throttling
   static const uint8_t THROTTELINGNUMSTEPS = 50;

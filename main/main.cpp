@@ -20,6 +20,7 @@
 // #include <chrono>
 // #include <iostream>
 // #include <thread>
+#include "portmacro.h"
 #ifdef __cplusplus
 extern "C" {
 #include "bsp/device.h"
@@ -70,64 +71,6 @@ void loop() {
     c64Emu.loop();
 }
 
-// // Global variables
-// static esp_lcd_panel_handle_t       display_lcd_panel    = NULL;
-// static esp_lcd_panel_io_handle_t    display_lcd_panel_io = NULL;
-// static size_t                       display_h_res        = 0;
-// static size_t                       display_v_res        = 0;
-// static lcd_color_rgb_pixel_format_t display_color_format;
-// static pax_buf_t                    fb                = {};
-// static QueueHandle_t                input_event_queue = NULL;
-
-// void blit(void) {
-//     esp_lcd_panel_draw_bitmap(display_lcd_panel, 0, 0, display_h_res, display_v_res, pax_buf_get_pixels(&fb));
-// }
-
-
-// bool last_event = false;
-// void test_input_routine() {
-//     // Fetch the handle for using the screen, this works even when
-//     esp_err_t res = bsp_display_get_panel(&display_lcd_panel);
-//     ESP_ERROR_CHECK(res);                             // Check that the display handle has been initialized
-//     bsp_display_get_panel_io(&display_lcd_panel_io);  // Do not check result of panel IO handle: not all types of
-//                                                       // display expose a panel IO handle
-//     res = bsp_display_get_parameters(&display_h_res, &display_v_res, &display_color_format);
-//     ESP_ERROR_CHECK(res);  // Check that the display parameters have been initialized
-
-//     ESP_ERROR_CHECK(bsp_input_get_queue(&input_event_queue));
-
-//     // Initialize the graphics stack
-//     pax_buf_init(&fb, NULL, display_h_res, display_v_res, PAX_BUF_16_565RGB);
-//     pax_buf_reversed(&fb, false);
-//     pax_buf_set_orientation(&fb, PAX_O_ROT_CW);
-
-//     ESP_LOGW(TAG, "Hello world!");
-
-//     pax_background(&fb, 0xFFFFFFFF);
-//     pax_draw_text(&fb, 0xFF000000, pax_font_sky_mono, 16, 0, 0, "Hello world!");
-//     blit();
-
-//     while (1) {
-//         bsp_input_event_t event;
-//         if (xQueueReceive(input_event_queue, &event, pdMS_TO_TICKS(10)) == pdTRUE) {
-//             if (last_event == false) {
-//             pax_background(&fb, 0xFFFFFFFF);
-//             pax_draw_text(&fb, 0xFF000000, pax_font_sky_mono, 16, 0, 0, "Button pressed!");
-//             blit();
-//             }
-//             last_event = true;
-//         } else {
-//             if (last_event == true) {
-//             pax_draw_text(&fb, 0xFF000000, pax_font_sky_mono, 16, 0, 0, "Nothing!");
-//             blit();
-//             pax_background(&fb, 0xFF0000FF);
-//             blit();
-//             }
-//             last_event = false;
-//         }
-//     }
-// }
-
 extern "C" void app_main(void) {
     // Start the GPIO interrupt service
     gpio_install_isr_service(0);
@@ -144,10 +87,9 @@ extern "C" void app_main(void) {
     ESP_ERROR_CHECK(bsp_device_initialize());
     setup();  // Initialize the C64 emulator and the display driver
 
-    // test_input_routine();
-
     // Main loop to run the C64 emulator and the display driver.
     while (true) {
         loop();
+
     }
 }

@@ -17,6 +17,7 @@
 */
 
 // #include "BLEKB.h"
+#include "KonsoolKB.hpp"
 extern "C" {
   #include "stdio.h"
   #include "esp_timer.h"
@@ -77,6 +78,7 @@ private:
 public:
   CPUC64 cpu;
   // BLEKB blekb;
+  KonsoolKB konsoolkb;
   // ExternalCmds externalCmds;
   bool perf = false;
   uint32_t batteryVoltage = 0;

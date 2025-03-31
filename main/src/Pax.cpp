@@ -135,6 +135,7 @@ void Pax::copyData(uint16_t x0, uint16_t y0, uint16_t w, uint16_t h, uint16_t* d
 }
 
 void Pax::drawFrame(uint16_t frameColor) {
+
     // Top bar
     Pax::copyColor(border_width, 0, vic_h_width, border_height, frameColor);
     // Bottom bar

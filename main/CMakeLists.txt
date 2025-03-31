@@ -2,13 +2,14 @@ idf_component_register(
 	SRCS
 		"main.cpp"
 		"src/C64Emu.cpp"
+		"src/CIA.cpp"
 		"src/CPU6502.cpp"
 		"src/CPUC64.cpp"
-		"src/VIC.cpp"
-		"src/CIA.cpp"
 		"src/Joystick.cpp"
-		"src/SDCard.cpp"
+		"src/KonsoolKB.cpp"
 		"src/Pax.cpp"
+		"src/SDCard.cpp"
+		"src/VIC.cpp"
 	PRIV_REQUIRES
 		# esp-idf-cxx
 		esp_lcd

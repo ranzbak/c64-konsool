@@ -30,7 +30,11 @@ make build
 
 ## Upload to the Tanmatsu
 
-TODO: Describe upload using AppFS upload
+Fast and easiest way to upload the build
+
+```bash
+tools/badgelink.py appfs upload "c64-emu" "C64 Emulator" 0 <project_root>/build/application.bin
+```
 
 ## Configure clangd
 

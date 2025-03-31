@@ -82,24 +82,24 @@ uint8_t CPUC64::getMem(uint16_t addr) {
         uint8_t ddra = cia1.ciareg[0x02];
         uint8_t input = 0xff;
         // TODO: Replace with Tanmatsu input
-        // if (joystickmode == 2) {
-        //   // real joystick, but still check for keyboard input
-        //   input = c64emu->blekb.getdc01(cia1.ciareg[0x01], true);
-        //   if (input == 0xff) {
-        //     // no key pressed -> return joystick value (of real joystick)
-        //     input = joystick.getValue();
-        //   }
-        // } else if (kbjoystickmode == 2) {
-        //   // keyboard joystick, but still check for keyboard input
-        //   input = c64emu->blekb.getdc01(cia1.ciareg[0x01], true);
-        //   if (input == 0xff) {
-        //     // no key pressed -> return joystick value (of keyboard joystick)
-        //     input = c64emu->blekb.getKBJoyValue(true);
-        //   }
-        // } else {
-        //   // keyboard
-        //   input = c64emu->blekb.getdc01(cia1.ciareg[0x01], true);
-        // }
+        if (joystickmode == 2) {
+          // real joystick, but still check for keyboard input
+          input = c64emu->konsoolkb.getdc01(cia1.ciareg[0x01], true);
+          if (input == 0xff) {
+            // no key pressed -> return joystick value (of real joystick)
+            input = joystick.getValue();
+          }
+        } else if (kbjoystickmode == 2) {
+          // keyboard joystick, but still check for keyboard input
+          input = c64emu->konsoolkb.getdc01(cia1.ciareg[0x01], true);
+          if (input == 0xff) {
+            // no key pressed -> return joystick value (of keyboard joystick)
+            input = c64emu->konsoolkb.getKBJoyValue(true);
+          }
+        } else {
+          // keyboard
+          input = c64emu->konsoolkb.getdc01(cia1.ciareg[0x01], true);
+        }
         return (cia1.ciareg[0x00] | ~ddra) & input;
       } else if (ciaidx == 0x01) {
         uint8_t ddrb = cia1.ciareg[0x03];
@@ -111,24 +111,24 @@ uint8_t CPUC64::getMem(uint16_t addr) {
           }
         }
         // TODO: Replace with Tanmatsu input
-        // if (joystickmode == 1) {
-        //   // real joystick, but still check for keyboard input
-        //   input = c64emu->blekb.getdc01(cia1.ciareg[0x00], false);
-        //   if (input == 0xff) {
-        //     // no key pressed -> return joystick value (of real joystick)
-        //     input = joystick.getValue();
-        //   }
-        // } else if (kbjoystickmode == 1) {
-        //   // keyboard joystick, but still check for keyboard input
-        //   input = c64emu->blekb.getdc01(cia1.ciareg[0x00], false);
-        //   if (input == 0xff) {
-        //     // no key pressed -> return joystick value (of keyboard joystick)
-        //     input = c64emu->blekb.getKBJoyValue(false);
-        //   }
-        // } else {
-        //   // keyboard
-        //   input = c64emu->blekb.getdc01(cia1.ciareg[0x00], false);
-        // }
+        if (joystickmode == 1) {
+          // real joystick, but still check for keyboard input
+          input = c64emu->konsoolkb.getdc01(cia1.ciareg[0x00], false);
+          if (input == 0xff) {
+            // no key pressed -> return joystick value (of real joystick)
+            input = joystick.getValue();
+          }
+        } else if (kbjoystickmode == 1) {
+          // keyboard joystick, but still check for keyboard input
+          input = c64emu->konsoolkb.getdc01(cia1.ciareg[0x00], false);
+          if (input == 0xff) {
+            // no key pressed -> return joystick value (of keyboard joystick)
+            input = c64emu->konsoolkb.getKBJoyValue(false);
+          }
+        } else {
+          // keyboard
+          input = c64emu->konsoolkb.getdc01(cia1.ciareg[0x00], false);
+        }
         return (cia1.ciareg[0x01] | ~ddrb) & input;
       }
       return cia1.getCommonCIAReg(ciaidx);
@@ -488,6 +488,9 @@ void CPUC64::run() {
       esp_rom_delay_us(adjustcyclestmp);
       adjustcycles.store(0, std::memory_order_release);
     }
+    if (vic->rasterline % 20 == 0) {
+      vTaskDelay( 1 );  // Yield to other tasks.
+    }
   }
 }
 
@@ -580,5 +583,5 @@ void CPUC64::exeSubroutine(uint16_t addr, uint8_t rega, uint8_t regx,
 
 void CPUC64::setKeycodes(uint8_t keycode1, uint8_t keycode2) {
   // TODO: Tanmatsu keyboard input here
-  // c64emu->blekb.setKbcodes(keycode1, keycode2);
+  c64emu->konsoolkb.setKbcodes(keycode1, keycode2);
 }

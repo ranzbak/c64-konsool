@@ -156,7 +156,7 @@ void IRAM_ATTR C64Emu::interruptTODFunc() {
 void IRAM_ATTR C64Emu::interruptSystemFunc() {
     // check for keyboard inputs ca. each 8 ms
     checkForKeyboardCnt++;
-    if (checkForKeyboardCnt == (8333 / Config::INTERRUPTSYSTEMRESOLUTION)) {
+    if (checkForKeyboardCnt == 8) {
         konsoolkb.handleKeyPress();
         checkForKeyboardCnt = 0;
     }
@@ -195,9 +195,6 @@ void C64Emu::cpuCode(void* parameter) {
                                                self->interruptTODFuncWrapper();
                                            });
     xTimerStart(tod_timer, 0);
-    // interruptTOD = timerBegin(1000000);
-    // timerAttachInterrupt(interruptTOD, &C64Emu::interruptTODFuncWrapper);
-    // timerAlarm(interruptTOD, 100000, true, 0);
 
     cpu.run();
     // cpu runs forever -> no vTaskDelete(NULL);
@@ -218,31 +215,6 @@ void C64Emu::powerOff() {
 
 void C64Emu::setup() {
     instance = this;
-
-    // init board
-    // configBoard.boardDriver->init();
-    // adc_oneshot_unit_init_cfg_t init_config = {.unit_id = ADC_UNIT_1,
-    //                                            .clk_src = ADC_RTC_CLK_SRC_DEFAULT,
-    //                                            .ulp_mode = ADC_ULP_MODE_DISABLE};
-    // adc_oneshot_new_unit(&init_config, &adc1_handle);
-    // adc_oneshot_chan_cfg_t config = {.atten = ADC_ATTEN_DB_12,
-    //                                  .bitwidth = ADC_BITWIDTH_DEFAULT};
-    // adc_oneshot_config_channel(adc1_handle, Config::BAT_ADC, &config);
-    // adc_cali_curve_fitting_config_t cali_config = {
-    //     .unit_id = ADC_UNIT_1,
-    //     .chan = Config::BAT_ADC,
-    //     .atten = ADC_ATTEN_DB_12,
-    //     .bitwidth = ADC_BITWIDTH_DEFAULT,
-    // };
-    // esp_err_t ret =
-    //     adc_cali_create_scheme_curve_fitting(&cali_config, &adc_cali_handle);
-    // if (ret != ESP_OK) {
-    //   ESP_LOGE(TAG, "adc calibration failed");
-    // }
-
-    // init. instance variables
-    // cntSecondsForBatteryCheck =
-    //     295; // wait 5 seconds for first battery measurement
 
     // allocate ram
     ram = new uint8_t[1 << 16];
@@ -268,6 +240,9 @@ void C64Emu::setup() {
                             19,              // Priority of the task
                             &cpuTask,        // Task handle
                             1);              // Core where the task should run
+
+    // Interrupt handler for keyboard IO (keyboard)
+    xTaskCreatePinnedToCore(interruptSystemFuncWrapper, "interruptSystem", 4096, NULL, 0, &interruptTask, 0);
 
     // interrupt each 1000 us to get keyboard codes and throttle 6502 CPU
     // TODO add keyboard handling back

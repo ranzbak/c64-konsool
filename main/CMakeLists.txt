@@ -10,6 +10,7 @@ idf_component_register(
 		"src/Pax.cpp"
 		"src/SDCard.cpp"
 		"src/VIC.cpp"
+		"src/konsoolled.cpp"
 	PRIV_REQUIRES
 		# esp-idf-cxx
 		esp_lcd

@@ -25,10 +25,11 @@ extern "C" {
 // #include "Joystick.h"
 #include <cstdint>
 #include <cstring>
+#include <konsoolled.hpp>
 
-// static const char *TAG = "BLEKB";
+static const char* TAG = "KonsoolKB";
 
-static const uint8_t NUMOFCYCLES_KEYPRESSEDDOWN = 3;
+static const uint8_t NUMOFCYCLES_KEYPRESSEDDOWN = 4;
 
 // static const uint8_t VIRTUALJOYSTICKLEFT_ACTIVATED    = 0x01;
 // static const uint8_t VIRTUALJOYSTICKLEFT_DEACTIVATED  = 0x81;
@@ -51,7 +52,10 @@ void KonsoolKB::init(C64Emu* c64emu) {
         return;
     }
 
-    this->c64emu = c64emu;
+    this->c64emu     = c64emu;
+    this->konsoleled = new KonsoleLED();
+
+    konsoleled->init();
 
     ESP_ERROR_CHECK(bsp_input_get_queue(&input_event_queue));
 
@@ -69,35 +73,232 @@ void KonsoolKB::init(C64Emu* c64emu) {
 
 void KonsoolKB::handleKeyPress() {
     bsp_input_event_t event;
+
     // shiftctrlcode = second byte bit 0 -> left shift, bit 1 -> ctrl, bit 2 -> commodore, bit 7 -> external command
     if (xQueueReceive(input_event_queue, &event, pdMS_TO_TICKS(10)) == pdTRUE) {
-        key_hold = 128;
+        shiftctrlcode  = 0;
+        keypresseddown = NUMOFCYCLES_KEYPRESSEDDOWN;
         switch (event.type) {
             case INPUT_EVENT_TYPE_KEYBOARD: {
-                sentdc00 = event.args_keyboard.ascii;
-                sentdc01 = event.args_keyboard.modifiers;
+                ESP_LOGI(TAG, "Keyboard event %c (%02x) %s", event.args_keyboard.ascii,
+                         (uint8_t)event.args_keyboard.ascii, event.args_keyboard.utf8);
+                this->keypresseddown = true;
+                this->key_hold =true;
+                // Translation table https://sta.c64.org/cbm64kbdlay.html
+                switch (event.args_keyboard.ascii) {
+                    case 'a':
+                        sentdc00             = 0xfd;
+                        sentdc01             = 0xfb;
+                        break;
+                    case 'b':
+                        sentdc00             = 0xf7;
+                        sentdc01             = 0xef;
+                        break;
+                    case 'c':
+                        sentdc00             = 0xfb;
+                        sentdc01             = 0xef;
+                        break;
+                    case 'd':
+                        sentdc00             = 0xfb;
+                        sentdc01             = 0xfb;
+                        break;
+                    case 'e':
+                        sentdc00             = 0xfd;
+                        sentdc01             = 0xbf;
+                        break;
+                    case 'f':
+                        sentdc00             = 0xfb;
+                        sentdc01             = 0xdf;
+                        break;
+                    case 'g':
+                        sentdc00             = 0xf7;
+                        sentdc01             = 0xfb;
+                        break;
+                    case 'h':
+                        sentdc00             = 0xf7;
+                        sentdc01             = 0xdf;
+                        break;
+                    case 'i':
+                        sentdc00             = 0xef;
+                        sentdc01             = 0xfd;
+                        break;
+                    case 'j':
+                        sentdc00             = 0xef;
+                        sentdc01             = 0xfb;
+                        break;
+                    case 'k':
+                        sentdc00             = 0xef;
+                        sentdc01             = 0xdf;
+                        break;
+                    case 'l':
+                        sentdc00             = 0xdf;
+                        sentdc01             = 0xfb;
+                        break;
+                    case 'm':
+                        sentdc00             = 0xef;
+                        sentdc01             = 0xef;
+                        break;
+                    case 'n':
+                        sentdc00             = 0xef;
+                        sentdc01             = 0x7f;
+                        break;
+                    case 'o':
+                        sentdc00             = 0xef;
+                        sentdc01             = 0xbf;
+                        break;
+                    case 'p':
+                        sentdc00             = 0xdf;
+                        sentdc01             = 0xfd;
+                        break;
+                    case 'q':
+                        sentdc00             = 0x7f;
+                        sentdc01             = 0xbf;
+                        break;
+                    case 'r':
+                        sentdc00             = 0xfb;
+                        sentdc01             = 0xfd;
+                        break;
+                    case 's':
+                        sentdc00             = 0xfd;
+                        sentdc01             = 0xdf;
+                        break;
+                    case 't':
+                        sentdc00             = 0xfb;
+                        sentdc01             = 0xbf;
+                        break;
+                    case 'u':
+                        sentdc00             = 0xf7;
+                        sentdc01             = 0xbf;
+                        break;
+                    case 'v':
+                        sentdc00             = 0xf7;
+                        sentdc01             = 0x7f;
+                        break;
+                    case 'w':
+                        sentdc00             = 0xfd;
+                        sentdc01             = 0xfd;
+                        break;
+                    case 'x':
+                        sentdc00             = 0xfb;
+                        sentdc01             = 0xf7;
+                        break;
+                    case 'y':
+                        sentdc00             = 0xf7;
+                        sentdc01             = 0xfd;
+                        break;
+                    case 'z':
+                        sentdc00             = 0xfd;
+                        sentdc01             = 0xef;
+                        break;
+                    case '0':
+                        sentdc00             = 0xef;
+                        sentdc01             = 0xf7;
+                        break;
+                    case '1':
+                        sentdc00             = 0x7f;
+                        sentdc01             = 0xfe;
+                        break;
+                    case '2':
+                        sentdc00             = 0x7f;
+                        sentdc01             = 0xf7;
+                        break;
+                    case '3':
+                        sentdc00             = 0xfd;
+                        sentdc01             = 0xfe;
+                        break;
+                    case '4':
+                        sentdc00             = 0xfd;
+                        sentdc01             = 0xf7;
+                        break;
+                    case '5':
+                        sentdc00             = 0xf7;
+                        sentdc01             = 0xfe;
+                        break;
+                    case '6':
+                        sentdc00             = 0xfb;
+                        sentdc01             = 0xf7;
+                        break;
+                    case '7':
+                        sentdc00             = 0xf7;
+                        sentdc01             = 0xfe;
+                        break;
+                    case '8':
+                        sentdc00             = 0xf7;
+                        sentdc01             = 0xf7;
+                        break;
+                    case '9':
+                        sentdc00             = 0xef;
+                        sentdc01             = 0xfe;
+                        break;
+                    case ' ':
+                        sentdc00             = 0x7f;
+                        sentdc01             = 0xef;
+                        break;
+                    case '.':
+                        sentdc00             = 0xdf;
+                        sentdc01             = 0xef;
+                        break;
+                    case '-':
+                        sentdc00             = 0xdf;
+                        sentdc01             = 0xf7;
+                        break;
+                    case '=':
+                        sentdc00             = 0xbf;
+                        sentdc01             = 0xbf;
+                        break;
+                    default:
+                        sentdc00             = 0xff;
+                        sentdc01             = 0xff;
+                        break;
+                }
+                // sentdc00             = event.args_keyboard.ascii;
+                // sentdc01             = event.args_keyboard.modifiers;
+                konsoleled->set_led_color(0, 0xff00ff00);
+                konsoleled->show_led_colors();
                 break;
             }
             case INPUT_EVENT_TYPE_NAVIGATION: {
+                konsoleled->set_led_color(0, 0xffff0000);
+                konsoleled->show_led_colors();
+
+                switch (event.args_navigation.key) {
+                    case BSP_INPUT_NAVIGATION_KEY_BACKSPACE:
+                        sentdc00             = 0xfe; 
+                        sentdc01             = 0xfe;
+                        break;
+                    case BSP_INPUT_NAVIGATION_KEY_RETURN:
+                        sentdc00             = 0xfe;
+                        sentdc01             = 0xfd;
+                        break;
+                    default:
+                        sentdc00             = 0xff;
+                        sentdc01             = 0xff;
+                        break;
+                }
                 break;
             }
             case INPUT_EVENT_TYPE_ACTION: {
+                konsoleled->set_led_color(0, 0xff0000ff);
+                konsoleled->show_led_colors();
                 break;
             }
             default:
                 break;
         }
     } else {
-        if (key_hold == 0) {
-            sentdc00 = 0xff;
-            sentdc01 = 0xff;
+        if (keypresseddowncnt == 0) {
+            this->keypresseddown = false;
+            this->key_hold = false;
+            sentdc00             = 0xff;
+            sentdc01             = 0xff;
+            konsoleled->set_led_color(0, 0xff000000);
+            konsoleled->show_led_colors();
         } else {
-            key_hold--;
+            keypresseddowncnt--;
         }
     }
 }
 
-// TODO ??
 uint8_t KonsoolKB::getdc01(uint8_t querydc00, bool xchgports) {
     uint8_t kbcode1;
     uint8_t kbcode2;
@@ -111,6 +312,7 @@ uint8_t KonsoolKB::getdc01(uint8_t querydc00, bool xchgports) {
     if (querydc00 == 0) {
         return kbcode2;
     }
+
     // special case "shift" + "commodore"
     if ((shiftctrlcode & 5) == 5) {
         if (querydc00 == kbcode1) {

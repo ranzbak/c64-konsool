@@ -20,33 +20,39 @@
 #include <string>
 #include "bsp/input.h"
 #include "freertos/idf_additions.h"
+#include "konsoolled.hpp"
 
 class C64Emu;
 class ExternalCmds;
 
 class KonsoolKB {
-private:
-  C64Emu *c64emu;
-  uint8_t sentdc01;
-  uint8_t sentdc00;
-  
-  QueueHandle_t input_event_queue;
+   private:
+    C64Emu*     c64emu;
+    KonsoleLED* konsoleled;
+    uint8_t     sentdc01;
+    uint8_t     sentdc00;
 
-  uint16_t key_hold;
+    QueueHandle_t input_event_queue;
 
-public:
-  bool deviceConnected;
-  uint8_t *buffer;
-  uint8_t shiftctrlcode;
-  uint8_t keypresseddowncnt;
-  uint8_t virtjoystickvalue;
-  bool keypresseddown;
-  bool detectreleasekey;
+    uint16_t key_hold;
 
-  KonsoolKB();
-  void init(C64Emu *c64emu);
-  void handleKeyPress();
-  uint8_t getdc01(uint8_t dc00, bool xchgports);
-  uint8_t getKBJoyValue(bool port2);
-  void setKbcodes(uint8_t sentdc01, uint8_t sentdc00);
+   public:
+    bool     deviceConnected;
+    uint8_t* buffer;
+    // shiftctrlcode: bit 0 -> shift
+    //                bit 1 -> ctrl
+    //                bit 2 -> commodore
+    //                bit 7 -> external command (cmd, x, 128)
+    uint8_t  shiftctrlcode;
+    uint8_t  keypresseddowncnt;
+    uint8_t  virtjoystickvalue;
+    bool     keypresseddown;
+    bool     detectreleasekey;
+
+    KonsoolKB();
+    void    init(C64Emu* c64emu);
+    void    handleKeyPress();
+    uint8_t getdc01(uint8_t dc00, bool xchgports);
+    uint8_t getKBJoyValue(bool port2);
+    void    setKbcodes(uint8_t sentdc01, uint8_t sentdc00);
 };

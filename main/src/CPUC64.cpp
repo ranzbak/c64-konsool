@@ -17,6 +17,8 @@
 #include "CPUC64.hpp"
 #include "C64Emu.hpp"
 #include "JoystickInitializationException.h"
+#include "freertos/projdefs.h"
+#include "portmacro.h"
 #include "roms/basic.h"
 #include "roms/kernal.h"
 #include <esp_log.h>
@@ -485,11 +487,9 @@ void CPUC64::run() {
     measuredcycles.fetch_add(numofcycles, std::memory_order_release);
     uint16_t adjustcyclestmp = adjustcycles.load(std::memory_order_acquire);
     if (adjustcyclestmp > 0) {
-      esp_rom_delay_us(adjustcyclestmp);
+      vTaskDelay((adjustcyclestmp /1000) / portTICK_PERIOD_MS ); // ms sleep
+      esp_rom_delay_us(adjustcyclestmp % 1000); // Fine tune the speed with us sleep
       adjustcycles.store(0, std::memory_order_release);
-    }
-    if (vic->rasterline % 20 == 0) {
-      vTaskDelay( 1 );  // Yield to other tasks.
     }
   }
 }

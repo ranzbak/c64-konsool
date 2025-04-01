@@ -20,6 +20,9 @@
 // #include <chrono>
 // #include <iostream>
 // #include <thread>
+#include "bsp/led.h"
+#include "freertos/projdefs.h"
+#include "hal/usb_serial_jtag_ll.h"
 #include "portmacro.h"
 #ifdef __cplusplus
 extern "C" {
@@ -33,12 +36,13 @@ extern "C" {
 }
 #endif
 // #include "Pax.hpp"
-#include "pax_types.h"
+#include "esp_log.h"
 #include "pax_fonts.h"
 #include "pax_gfx.h"
 #include "pax_text.h"
-#include "esp_log.h"
+#include "pax_types.h"
 #include "src/C64Emu.hpp"
+#include "src/konsoolled.hpp"
 // #include "src/Config.hpp"
 // Constants
 static char const* TAG = "app_main";
@@ -90,6 +94,5 @@ extern "C" void app_main(void) {
     // Main loop to run the C64 emulator and the display driver.
     while (true) {
         loop();
-
     }
 }

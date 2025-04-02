@@ -83,172 +83,214 @@ void KonsoolKB::handleKeyPress() {
                 ESP_LOGI(TAG, "Keyboard event %c (%02x) %s", event.args_keyboard.ascii,
                          (uint8_t)event.args_keyboard.ascii, event.args_keyboard.utf8);
                 this->keypresseddown = true;
-                this->key_hold =true;
+                this->key_hold       = true;
                 // Translation table https://sta.c64.org/cbm64kbdlay.html
                 switch (event.args_keyboard.ascii) {
                     case 'a':
-                        sentdc00             = 0xfd;
-                        sentdc01             = 0xfb;
+                        sentdc00 = 0xfd;
+                        sentdc01 = 0xfb;
                         break;
                     case 'b':
-                        sentdc00             = 0xf7;
-                        sentdc01             = 0xef;
+                        sentdc00 = 0xf7;
+                        sentdc01 = 0xef;
                         break;
                     case 'c':
-                        sentdc00             = 0xfb;
-                        sentdc01             = 0xef;
+                        sentdc00 = 0xfb;
+                        sentdc01 = 0xef;
                         break;
                     case 'd':
-                        sentdc00             = 0xfb;
-                        sentdc01             = 0xfb;
+                        sentdc00 = 0xfb;
+                        sentdc01 = 0xfb;
                         break;
                     case 'e':
-                        sentdc00             = 0xfd;
-                        sentdc01             = 0xbf;
+                        sentdc00 = 0xfd;
+                        sentdc01 = 0xbf;
                         break;
                     case 'f':
-                        sentdc00             = 0xfb;
-                        sentdc01             = 0xdf;
+                        sentdc00 = 0xfb;
+                        sentdc01 = 0xdf;
                         break;
                     case 'g':
-                        sentdc00             = 0xf7;
-                        sentdc01             = 0xfb;
+                        sentdc00 = 0xf7;
+                        sentdc01 = 0xfb;
                         break;
                     case 'h':
-                        sentdc00             = 0xf7;
-                        sentdc01             = 0xdf;
+                        sentdc00 = 0xf7;
+                        sentdc01 = 0xdf;
                         break;
                     case 'i':
-                        sentdc00             = 0xef;
-                        sentdc01             = 0xfd;
+                        sentdc00 = 0xef;
+                        sentdc01 = 0xfd;
                         break;
                     case 'j':
-                        sentdc00             = 0xef;
-                        sentdc01             = 0xfb;
+                        sentdc00 = 0xef;
+                        sentdc01 = 0xfb;
                         break;
                     case 'k':
-                        sentdc00             = 0xef;
-                        sentdc01             = 0xdf;
+                        sentdc00 = 0xef;
+                        sentdc01 = 0xdf;
                         break;
                     case 'l':
-                        sentdc00             = 0xdf;
-                        sentdc01             = 0xfb;
+                        sentdc00 = 0xdf;
+                        sentdc01 = 0xfb;
                         break;
                     case 'm':
-                        sentdc00             = 0xef;
-                        sentdc01             = 0xef;
+                        sentdc00 = 0xef;
+                        sentdc01 = 0xef;
                         break;
                     case 'n':
-                        sentdc00             = 0xef;
-                        sentdc01             = 0x7f;
+                        sentdc00 = 0xef;
+                        sentdc01 = 0x7f;
                         break;
                     case 'o':
-                        sentdc00             = 0xef;
-                        sentdc01             = 0xbf;
+                        sentdc00 = 0xef;
+                        sentdc01 = 0xbf;
                         break;
                     case 'p':
-                        sentdc00             = 0xdf;
-                        sentdc01             = 0xfd;
+                        sentdc00 = 0xdf;
+                        sentdc01 = 0xfd;
                         break;
                     case 'q':
-                        sentdc00             = 0x7f;
-                        sentdc01             = 0xbf;
+                        sentdc00 = 0x7f;
+                        sentdc01 = 0xbf;
                         break;
                     case 'r':
-                        sentdc00             = 0xfb;
-                        sentdc01             = 0xfd;
+                        sentdc00 = 0xfb;
+                        sentdc01 = 0xfd;
                         break;
                     case 's':
-                        sentdc00             = 0xfd;
-                        sentdc01             = 0xdf;
+                        sentdc00 = 0xfd;
+                        sentdc01 = 0xdf;
                         break;
                     case 't':
-                        sentdc00             = 0xfb;
-                        sentdc01             = 0xbf;
+                        sentdc00 = 0xfb;
+                        sentdc01 = 0xbf;
                         break;
                     case 'u':
-                        sentdc00             = 0xf7;
-                        sentdc01             = 0xbf;
+                        sentdc00 = 0xf7;
+                        sentdc01 = 0xbf;
                         break;
                     case 'v':
-                        sentdc00             = 0xf7;
-                        sentdc01             = 0x7f;
+                        sentdc00 = 0xf7;
+                        sentdc01 = 0x7f;
                         break;
                     case 'w':
-                        sentdc00             = 0xfd;
-                        sentdc01             = 0xfd;
+                        sentdc00 = 0xfd;
+                        sentdc01 = 0xfd;
                         break;
                     case 'x':
-                        sentdc00             = 0xfb;
-                        sentdc01             = 0xf7;
+                        sentdc00 = 0xfb;
+                        sentdc01 = 0xf7;
                         break;
                     case 'y':
-                        sentdc00             = 0xf7;
-                        sentdc01             = 0xfd;
+                        sentdc00 = 0xf7;
+                        sentdc01 = 0xfd;
                         break;
                     case 'z':
-                        sentdc00             = 0xfd;
-                        sentdc01             = 0xef;
+                        sentdc00 = 0xfd;
+                        sentdc01 = 0xef;
                         break;
                     case '0':
-                        sentdc00             = 0xef;
-                        sentdc01             = 0xf7;
+                        sentdc00 = 0xef;
+                        sentdc01 = 0xf7;
                         break;
+                    case '!':
+                        shiftctrlcode |= 0x01;
                     case '1':
-                        sentdc00             = 0x7f;
-                        sentdc01             = 0xfe;
+                        sentdc00 = 0x7f;
+                        sentdc01 = 0xfe;
                         break;
+                    case '"':
+                        shiftctrlcode |= 0x01;
                     case '2':
-                        sentdc00             = 0x7f;
-                        sentdc01             = 0xf7;
+                        sentdc00 = 0x7f;
+                        sentdc01 = 0xf7;
                         break;
+                    case '#':
+                        shiftctrlcode |= 0x01;
                     case '3':
-                        sentdc00             = 0xfd;
-                        sentdc01             = 0xfe;
+                        sentdc00 = 0xfd;
+                        sentdc01 = 0xfe;
                         break;
+                    case '$':
+                        shiftctrlcode |= 0x01;
                     case '4':
-                        sentdc00             = 0xfd;
-                        sentdc01             = 0xf7;
+                        sentdc00 = 0xfd;
+                        sentdc01 = 0xf7;
                         break;
+                    case '%':
+                        shiftctrlcode |= 0x01;
                     case '5':
-                        sentdc00             = 0xf7;
-                        sentdc01             = 0xfe;
+                        sentdc00 = 0xfb;
+                        sentdc01 = 0xfe;
                         break;
+                    case '&':
+                        shiftctrlcode |= 0x01;
                     case '6':
-                        sentdc00             = 0xfb;
-                        sentdc01             = 0xf7;
+                        sentdc00 = 0xfb;
+                        sentdc01 = 0xf7;
                         break;
+                    case '`':
+                        shiftctrlcode |= 0x01;
                     case '7':
-                        sentdc00             = 0xf7;
-                        sentdc01             = 0xfe;
+                        sentdc00 = 0xf7;
+                        sentdc01 = 0xfe;
                         break;
+                    case '(':
+                        shiftctrlcode |= 0x01;
                     case '8':
-                        sentdc00             = 0xf7;
-                        sentdc01             = 0xf7;
+                        sentdc00 = 0xf7;
+                        sentdc01 = 0xf7;
                         break;
+                    case ')':
+                        shiftctrlcode |= 0x01;
                     case '9':
-                        sentdc00             = 0xef;
-                        sentdc01             = 0xfe;
+                        sentdc00 = 0xef;
+                        sentdc01 = 0xfe;
                         break;
                     case ' ':
-                        sentdc00             = 0x7f;
-                        sentdc01             = 0xef;
+                        sentdc00 = 0x7f;
+                        sentdc01 = 0xef;
                         break;
                     case '.':
-                        sentdc00             = 0xdf;
-                        sentdc01             = 0xef;
+                        sentdc00 = 0xdf;
+                        sentdc01 = 0xef;
                         break;
                     case '-':
-                        sentdc00             = 0xdf;
-                        sentdc01             = 0xf7;
+                        sentdc00 = 0xdf;
+                        sentdc01 = 0xf7;
+                        break;
+                    case '+':
+                        sentdc00 = 0xdf;
+                        sentdc01 = 0xfe;
                         break;
                     case '=':
-                        sentdc00             = 0xbf;
-                        sentdc01             = 0xbf;
+                        sentdc00 = 0xbf;
+                        sentdc01 = 0xdf;
                         break;
+                    case ',':
+                        sentdc00 = 0xdf;
+                        sentdc01 = 0x7f;
+                        break;
+                    case '*':
+                        sentdc00 = 0xbf;
+                        sentdc01 = 0xfd;
+                        break;
+                    // case '/':
+                    //     sentdc00 = 0xbf;
+                    //     sentdc01 = 0x7f;
+                    //     break;
+                    // case ';':
+                    //     sentdc00 = 0xbf;
+                    //     sentdc01 = 0xfb;
+                    //     break;
+                    // case '@':
+                    //     sentdc00 = 0xdf;
+                    //     sentdc01 = 0xbf;
+                    //     break;
                     default:
-                        sentdc00             = 0xff;
-                        sentdc01             = 0xff;
+                        sentdc00 = 0xff;
+                        sentdc01 = 0xff;
                         break;
                 }
                 // sentdc00             = event.args_keyboard.ascii;
@@ -263,16 +305,16 @@ void KonsoolKB::handleKeyPress() {
 
                 switch (event.args_navigation.key) {
                     case BSP_INPUT_NAVIGATION_KEY_BACKSPACE:
-                        sentdc00             = 0xfe; 
-                        sentdc01             = 0xfe;
+                        sentdc00 = 0xfe;
+                        sentdc01 = 0xfe;
                         break;
                     case BSP_INPUT_NAVIGATION_KEY_RETURN:
-                        sentdc00             = 0xfe;
-                        sentdc01             = 0xfd;
+                        sentdc00 = 0xfe;
+                        sentdc01 = 0xfd;
                         break;
                     default:
-                        sentdc00             = 0xff;
-                        sentdc01             = 0xff;
+                        sentdc00 = 0xff;
+                        sentdc01 = 0xff;
                         break;
                 }
                 break;
@@ -285,10 +327,21 @@ void KonsoolKB::handleKeyPress() {
             default:
                 break;
         }
+        // Handle modifier keys
+        if (event.args_keyboard.modifiers & BSP_INPUT_MODIFIER_SHIFT_L) {
+            shiftctrlcode = 1;
+        }
+        if (event.args_keyboard.modifiers & BSP_INPUT_MODIFIER_CTRL) {
+            shiftctrlcode |= 2;
+        }
+        if (event.args_keyboard.modifiers & BSP_INPUT_NAVIGATION_KEY_SUPER) {
+            shiftctrlcode |= 4;
+        }
     } else {
         if (keypresseddowncnt == 0) {
             this->keypresseddown = false;
-            this->key_hold = false;
+            this->key_hold       = false;
+            this->shiftctrlcode  = 0;
             sentdc00             = 0xff;
             sentdc01             = 0xff;
             konsoleled->set_led_color(0, 0xff000000);

@@ -34,7 +34,7 @@ extern "C" {
 #include <inttypes.h>
 }
 
-static const char* TAG                   = "C64Emu";
+static const char* TAG = "C64Emu";
 SemaphoreHandle_t  C64Emu::lcdRefreshSem;
 
 C64Emu* C64Emu::instance = nullptr;
@@ -242,17 +242,14 @@ void C64Emu::setup() {
     // Setup the GPIO interrupt from the LCD_TE signal rising edge
     gpio_config_t lcd_te_io_conf = {
         // .pin_bit_mask = BIT64(Config::LCDTE),
-        .pin_bit_mask = BIT64(GPIO_NUM_12),
-        .mode = GPIO_MODE_INPUT,
-        .pull_up_en = GPIO_PULLUP_DISABLE,
-        .pull_down_en = GPIO_PULLDOWN_DISABLE,
-        .intr_type = GPIO_INTR_POSEDGE,
+        .pin_bit_mask = BIT64(GPIO_NUM_12),    .mode = GPIO_MODE_INPUT,        .pull_up_en = GPIO_PULLUP_DISABLE,
+        .pull_down_en = GPIO_PULLDOWN_DISABLE, .intr_type = GPIO_INTR_POSEDGE,
     };
 
     ESP_ERROR_CHECK(gpio_config(&lcd_te_io_conf));
 
     // Call interrupt routine to unlick semaphore and start LCD refresh
-    ESP_ERROR_CHECK(gpio_isr_handler_add(Config::LCDTE, gpioLcdTEISR, (void*) &lcdRefreshSem));
+    ESP_ERROR_CHECK(gpio_isr_handler_add(Config::LCDTE, gpioLcdTEISR, (void*)&lcdRefreshSem));
 
     // start cpu task
     xTaskCreatePinnedToCore(cpuCodeWrapper,  // Function to implement the task
@@ -283,7 +280,7 @@ void C64Emu::setup() {
 void C64Emu::loop() {
     // char obtained = xSemaphoreTake(C64Emu::lcdRefreshSem, 50 / portTICK_PERIOD_MS);
     // if (obtained == pdTRUE) {
-        vic.refresh(true);
+    vic.refresh(true);
     // }
     vTaskDelay(Config::REFRESHDELAY);
 }

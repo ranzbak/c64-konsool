@@ -92,7 +92,6 @@ extern "C" void app_main(void) {
     //     .intr_type = GPIO_INTR_POSEDGE
     // };
     // ESP_ERROR_CHECK(gpio_config(&lcd_te_io_conf));
-    
 
     // Start the GPIO interrupt service
     gpio_install_isr_service(0);

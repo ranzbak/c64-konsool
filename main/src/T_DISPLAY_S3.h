@@ -20,8 +20,9 @@
 #include "BoardDriver.hpp"
 
 class T_DISPLAY_S3 : public BoardDriver {
-public:
-  void init() override {}
+   public:
+    void init() override {
+    }
 };
 
-#endif // T_DISPLAY_S3_H
+#endif  // T_DISPLAY_S3_H

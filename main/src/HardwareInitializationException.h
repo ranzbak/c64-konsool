@@ -21,9 +21,9 @@
 #include <string>
 
 class HardwareInitializationException : public std::runtime_error {
-public:
-  HardwareInitializationException(const std::string &message)
-      : std::runtime_error(message) {}
+   public:
+    HardwareInitializationException(const std::string& message) : std::runtime_error(message) {
+    }
 };
 
-#endif // HARDWAREINITIALIZATIONEXCEPTION_H
+#endif  // HARDWAREINITIALIZATIONEXCEPTION_H

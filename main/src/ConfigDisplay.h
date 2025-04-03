@@ -26,12 +26,18 @@
 #endif
 
 struct ConfigDisplay {
-  DisplayDriver *displayDriver;
+    DisplayDriver* displayDriver;
 #if defined(USE_ST7789V)
-  ConfigDisplay() { displayDriver = new ST7789V(); }
+    ConfigDisplay() {
+        displayDriver = new ST7789V();
+    }
 #elif defined(USE_RM67162)
-  ConfigDisplay() { displayDriver = new RM67162(); }
-#elif defined (USE_PAX)
-  ConfigDisplay() { displayDriver = new Pax(); }
+    ConfigDisplay() {
+        displayDriver = new RM67162();
+    }
+#elif defined(USE_PAX)
+    ConfigDisplay() {
+        displayDriver = new Pax();
+    }
 #endif
 };

@@ -21,37 +21,36 @@
 #ifdef USE_RM67162
 #include "rm67162/rm67162.h"
 
-uint16_t *RM67162::framecolormem;
+uint16_t* RM67162::framecolormem;
 
 void RM67162::init() {
-  RM67162::framecolormem = new uint16_t[FRAMEMEMSIZE]();
-  rm67162_init();
-  lcd_setRotation(1);
+    RM67162::framecolormem = new uint16_t[FRAMEMEMSIZE]();
+    rm67162_init();
+    lcd_setRotation(1);
 }
 
 void RM67162::drawFrame(uint16_t frameColor) {
-  uint16_t cnt = FRAMEMEMSIZE;
-  uint16_t *frameptr = RM67162::framecolormem;
-  while (cnt--) {
-    *frameptr = frameColor;
-    frameptr++;
-  }
-  if (BORDERHEIGHT > 0) {
-    lcd_PushColors(BORDERWIDTH, 0, 320, BORDERHEIGHT, RM67162::framecolormem);
-    lcd_PushColors(BORDERWIDTH, 200 + BORDERHEIGHT, 320, BORDERHEIGHT,
-                   RM67162::framecolormem);
-  }
-  if (BORDERWIDTH > 0) {
-    lcd_PushColors(0, 0, BORDERWIDTH, Config::LCDHEIGHT,
-                   RM67162::framecolormem);
-    lcd_PushColors(BORDERWIDTH + 320, 0, BORDERWIDTH, Config::LCDHEIGHT,
-                   RM67162::framecolormem);
-  }
+    uint16_t  cnt      = FRAMEMEMSIZE;
+    uint16_t* frameptr = RM67162::framecolormem;
+    while (cnt--) {
+        *frameptr = frameColor;
+        frameptr++;
+    }
+    if (BORDERHEIGHT > 0) {
+        lcd_PushColors(BORDERWIDTH, 0, 320, BORDERHEIGHT, RM67162::framecolormem);
+        lcd_PushColors(BORDERWIDTH, 200 + BORDERHEIGHT, 320, BORDERHEIGHT, RM67162::framecolormem);
+    }
+    if (BORDERWIDTH > 0) {
+        lcd_PushColors(0, 0, BORDERWIDTH, Config::LCDHEIGHT, RM67162::framecolormem);
+        lcd_PushColors(BORDERWIDTH + 320, 0, BORDERWIDTH, Config::LCDHEIGHT, RM67162::framecolormem);
+    }
 }
 
-void RM67162::drawBitmap(uint16_t *bitmap) {
-  lcd_PushColors(BORDERWIDTH, BORDERHEIGHT, 320, 200, bitmap);
+void RM67162::drawBitmap(uint16_t* bitmap) {
+    lcd_PushColors(BORDERWIDTH, BORDERHEIGHT, 320, 200, bitmap);
 }
 
-const uint16_t *RM67162::getC64Colors() const { return c64Colors; }
+const uint16_t* RM67162::getC64Colors() const {
+    return c64Colors;
+}
 #endif

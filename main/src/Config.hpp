@@ -98,12 +98,16 @@ struct Config {
   // DisplayDriver (considering a possible rotation)
   static const uint16_t LCDWIDTH = 0;
   static const uint16_t LCDHEIGHT = 0;
-  static const uint16_t REFRESHDELAY = 10;
+  static const uint16_t REFRESHDELAY = 16;
+
+  // LCD Display IO
+  static const gpio_num_t LCDTE = GPIO_NUM_11;
 
   // SDCard
-  static const gpio_num_t SD_MISO_PIN = GPIO_NUM_13;
-  static const gpio_num_t SD_MOSI_PIN = GPIO_NUM_11;
-  static const gpio_num_t SD_SCLK_PIN = GPIO_NUM_12;
+  static const gpio_num_t SD_MISO_PIN = GPIO_NUM_39;
+  static const gpio_num_t SD_MOSI_PIN = GPIO_NUM_44;
+  static const gpio_num_t SD_SCLK_PIN = GPIO_NUM_43;
+  static const gpio_num_t SD_CS_PIN = GPIO_NUM_42;
 
   // Joystick
   static const adc_channel_t ADC_JOYSTICK_X = ADC_CHANNEL_4;

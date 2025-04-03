@@ -16,11 +16,15 @@
 */
 #include "C64Emu.hpp"
 #include <driver/gpio.h>
+#include <string.h>
 #include <cstdint>
 #include "Config.hpp"
 #include "HardwareInitializationException.h"
 #include "VIC.hpp"
 #include "driver/timer_types_legacy.h"
+#include "esp_rom_gpio.h"
+#include "freertos/idf_additions.h"
+#include "hal/gpio_types.h"
 #include "roms/charset.h"
 extern "C" {
 #include <esp_adc/adc_cali.h>
@@ -30,7 +34,8 @@ extern "C" {
 #include <inttypes.h>
 }
 
-static const char* TAG = "C64Emu";
+static const char* TAG                   = "C64Emu";
+SemaphoreHandle_t  C64Emu::lcdRefreshSem;
 
 C64Emu* C64Emu::instance = nullptr;
 
@@ -222,6 +227,8 @@ void C64Emu::setup() {
     // init VIC
     vic.init(ram, charset_rom);
 
+    lcdRefreshSem = xSemaphoreCreateBinary();
+
     // init ble keyboard
     // TODO: use Konsool keyboard
     konsoolkb.init(this);
@@ -231,6 +238,21 @@ void C64Emu::setup() {
 
     // init ExternalCmds (must be initialized after cpu!)
     // externalCmds.init(ram, this);
+
+    // Setup the GPIO interrupt from the LCD_TE signal rising edge
+    gpio_config_t lcd_te_io_conf = {
+        // .pin_bit_mask = BIT64(Config::LCDTE),
+        .pin_bit_mask = BIT64(GPIO_NUM_12),
+        .mode = GPIO_MODE_INPUT,
+        .pull_up_en = GPIO_PULLUP_DISABLE,
+        .pull_down_en = GPIO_PULLDOWN_DISABLE,
+        .intr_type = GPIO_INTR_POSEDGE,
+    };
+
+    ESP_ERROR_CHECK(gpio_config(&lcd_te_io_conf));
+
+    // Call interrupt routine to unlick semaphore and start LCD refresh
+    ESP_ERROR_CHECK(gpio_isr_handler_add(Config::LCDTE, gpioLcdTEISR, (void*) &lcdRefreshSem));
 
     // start cpu task
     xTaskCreatePinnedToCore(cpuCodeWrapper,  // Function to implement the task
@@ -259,6 +281,9 @@ void C64Emu::setup() {
 }
 
 void C64Emu::loop() {
-    vic.refresh(true);
+    // char obtained = xSemaphoreTake(C64Emu::lcdRefreshSem, 50 / portTICK_PERIOD_MS);
+    // if (obtained == pdTRUE) {
+        vic.refresh(true);
+    // }
     vTaskDelay(Config::REFRESHDELAY);
 }

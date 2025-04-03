@@ -18,6 +18,8 @@
 
 // #include "BLEKB.h"
 #include "KonsoolKB.hpp"
+#include "esp_attr.h"
+#include "freertos/projdefs.h"
 #include "portmacro.h"
 extern "C" {
 #include "esp_timer.h"
@@ -27,6 +29,7 @@ extern "C" {
 #include "ConfigBoard.hpp"
 // #include "ExternalCmds.hpp"
 #include "freertos/idf_additions.h"
+#include "freertos/semphr.h"
 
 class C64Emu {
    private:
@@ -41,7 +44,7 @@ class C64Emu {
         while (true) {
             if (instance != nullptr) {
                 instance->interruptSystemFunc();
-                vTaskDelay(1/portTICK_PERIOD_MS);
+                vTaskDelay(1 / portTICK_PERIOD_MS);
             }
         }
     }
@@ -53,6 +56,15 @@ class C64Emu {
     static void cpuCodeWrapper(void* parameter) {
         if (instance != nullptr) {
             instance->cpuCode(parameter);
+        }
+    }
+
+    static SemaphoreHandle_t lcdRefreshSem;
+
+    IRAM_ATTR static void gpioLcdTEISR(void* parameter) {
+        SemaphoreHandle_t *semaphore = static_cast<SemaphoreHandle_t*>(parameter);
+        if (instance != nullptr) {
+            xSemaphoreGiveFromISR(semaphore, NULL);
         }
     }
 

@@ -20,8 +20,11 @@
 // #include <chrono>
 // #include <iostream>
 // #include <thread>
+#include "Config.hpp"
 #include "bsp/led.h"
+#include "esp_rom_gpio.h"
 #include "freertos/projdefs.h"
+#include "hal/gpio_types.h"
 #include "hal/usb_serial_jtag_ll.h"
 #include "portmacro.h"
 #ifdef __cplusplus
@@ -36,7 +39,11 @@ extern "C" {
 }
 #endif
 // #include "Pax.hpp"
+#include "driver/gpio.h"
 #include "esp_log.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/queue.h"
+#include "freertos/task.h"
 #include "pax_fonts.h"
 #include "pax_gfx.h"
 #include "pax_text.h"
@@ -76,6 +83,17 @@ void loop() {
 }
 
 extern "C" void app_main(void) {
+    // Setup the GPIO interrupt from the LCD_TE signal rising edge
+    // gpio_config_t lcd_te_io_conf = {
+    //     .pin_bit_mask = BIT64(Config::LCDTE),
+    //     .mode = GPIO_MODE_INPUT,
+    //     .pull_up_en = GPIO_PULLUP_DISABLE,
+    //     .pull_down_en = GPIO_PULLDOWN_DISABLE,
+    //     .intr_type = GPIO_INTR_POSEDGE
+    // };
+    // ESP_ERROR_CHECK(gpio_config(&lcd_te_io_conf));
+    
+
     // Start the GPIO interrupt service
     gpio_install_isr_service(0);
 

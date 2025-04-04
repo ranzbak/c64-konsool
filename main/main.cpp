@@ -22,11 +22,13 @@
 // #include <thread>
 #include "Config.hpp"
 #include "bsp/led.h"
+#include "esp_lcd_panel_io.h"
 #include "esp_rom_gpio.h"
 #include "freertos/projdefs.h"
 #include "hal/gpio_types.h"
 #include "hal/usb_serial_jtag_ll.h"
 #include "portmacro.h"
+#include "targets/tanmatsu/tanmatsu_hardware.h"
 #ifdef __cplusplus
 extern "C" {
 #include "bsp/device.h"
@@ -73,25 +75,16 @@ void setup() {
         while (true) {
         }
     }
-    vTaskDelay(1000 / portTICK_PERIOD_MS);
+    vTaskDelay( 1000 / portTICK_PERIOD_MS);
+    ESP_LOGI(TAG, "Setup TE refresh interrupt");
+    ESP_ERROR_CHECK(bsp_display_set_tearing_effect_mode(BSP_DISPLAY_TE_V_BLANKING));
     ESP_LOGI(TAG, "setup done");
 }
 
-void loop() {
-    // Run the C64 emulator
-    c64Emu.loop();
-}
 
+static esp_lcd_panel_io_handle_t panel_io = NULL;
 extern "C" void app_main(void) {
-    // Setup the GPIO interrupt from the LCD_TE signal rising edge
-    // gpio_config_t lcd_te_io_conf = {
-    //     .pin_bit_mask = BIT64(Config::LCDTE),
-    //     .mode = GPIO_MODE_INPUT,
-    //     .pull_up_en = GPIO_PULLUP_DISABLE,
-    //     .pull_down_en = GPIO_PULLDOWN_DISABLE,
-    //     .intr_type = GPIO_INTR_POSEDGE
-    // };
-    // ESP_ERROR_CHECK(gpio_config(&lcd_te_io_conf));
+    SemaphoreHandle_t semaphore = NULL;
 
     // Start the GPIO interrupt service
     gpio_install_isr_service(0);
@@ -108,8 +101,15 @@ extern "C" void app_main(void) {
     ESP_ERROR_CHECK(bsp_device_initialize());
     setup();  // Initialize the C64 emulator and the display driver
 
+    bsp_display_get_tearing_effect_semaphore(&semaphore);
+
     // Main loop to run the C64 emulator and the display driver.
+    
     while (true) {
-        loop();
+        // TODO: Find out later why this is necessary
+        xSemaphoreTake(semaphore, 100/portTICK_PERIOD_MS);
+        xSemaphoreTake(semaphore, 100/portTICK_PERIOD_MS);
+
+        c64Emu.loop();
     }
 }

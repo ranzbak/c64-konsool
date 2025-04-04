@@ -88,7 +88,7 @@ struct Config {
 #if defined(BOARD_KONSOOL)
 // TODO: Replace with pax setup
 #define USE_SDCARD
-#define USE_JOYSTICK
+// #define USE_JOYSTICK
 #define USE_PAX
 
   static const gpio_num_t PWR_EN = GPIO_NUM_10;

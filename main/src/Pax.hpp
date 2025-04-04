@@ -49,6 +49,8 @@ class Pax : public DisplayDriver {
     static const uint16_t vic_h_width  = 320 * 2;
     static const uint16_t vic_v_height = 200 * 2;
 
+    pax_buf_t c64_buf;
+
     pax_buf_t                    fb;
     uint16_t*                     raw_fb;
     esp_lcd_panel_handle_t       display_lcd_panel;

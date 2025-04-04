@@ -100,3 +100,18 @@ size-files:
 format:
 	find main/ -iname '*.h' -o -iname '*.c' -o -iname '*.cpp' | xargs clang-format -i
 
+# Flash directly to the badge
+
+.PHONY: flash
+flash: build
+	source "$(IDF_PATH)/export.sh" && \
+	idf.py flash -p $(PORT)
+
+.PHONY: flashmonitor
+flashmonitor: build
+	source "$(IDF_PATH)/export.sh" && \
+	idf.py flash -p $(PORT) monitor
+
+.PHONY: monitor
+monitor:
+	source "$(IDF_PATH)/export.sh" && idf.py monitor -p $(PORT)

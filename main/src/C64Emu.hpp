@@ -61,12 +61,6 @@ class C64Emu {
 
     static SemaphoreHandle_t lcdRefreshSem;
 
-    IRAM_ATTR static void gpioLcdTEISR(void* parameter) {
-        SemaphoreHandle_t *semaphore = static_cast<SemaphoreHandle_t*>(parameter);
-        if (instance != nullptr) {
-            xSemaphoreGiveFromISR(semaphore, NULL);
-        }
-    }
 
     uint8_t*    ram;
     ConfigBoard configBoard;

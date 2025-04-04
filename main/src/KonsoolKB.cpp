@@ -29,7 +29,7 @@ extern "C" {
 
 static const char* TAG = "KonsoolKB";
 
-static const uint8_t NUMOFCYCLES_KEYPRESSEDDOWN = 4;
+static const uint8_t NUMOFCYCLES_KEYPRESSEDDOWN = 16;
 
 // static const uint8_t VIRTUALJOYSTICKLEFT_ACTIVATED    = 0x01;
 // static const uint8_t VIRTUALJOYSTICKLEFT_DEACTIVATED  = 0x81;
@@ -73,6 +73,7 @@ void KonsoolKB::init(C64Emu* c64emu) {
 
 void KonsoolKB::handleKeyPress() {
     bsp_input_event_t event;
+    uint8_t key_code;
 
     // shiftctrlcode = second byte bit 0 -> left shift, bit 1 -> ctrl, bit 2 -> commodore, bit 7 -> external command
     if (xQueueReceive(input_event_queue, &event, pdMS_TO_TICKS(10)) == pdTRUE) {
@@ -84,8 +85,16 @@ void KonsoolKB::handleKeyPress() {
                          (uint8_t)event.args_keyboard.ascii, event.args_keyboard.utf8);
                 this->keypresseddown = true;
                 this->key_hold       = true;
+                
+                key_code = event.args_keyboard.ascii;
+
+                if (key_code >= 'A' && key_code <= 'Z') {
+                    key_code += 'a' - 'A';
+                    shiftctrlcode = 1;
+                }
+
                 // Translation table https://sta.c64.org/cbm64kbdlay.html
-                switch (event.args_keyboard.ascii) {
+                switch (key_code) {
                     case 'a':
                         sentdc00 = 0xfd;
                         sentdc01 = 0xfb;
@@ -276,18 +285,22 @@ void KonsoolKB::handleKeyPress() {
                         sentdc00 = 0xbf;
                         sentdc01 = 0xfd;
                         break;
-                    // case '/':
-                    //     sentdc00 = 0xbf;
-                    //     sentdc01 = 0x7f;
-                    //     break;
-                    // case ';':
-                    //     sentdc00 = 0xbf;
-                    //     sentdc01 = 0xfb;
-                    //     break;
-                    // case '@':
-                    //     sentdc00 = 0xdf;
-                    //     sentdc01 = 0xbf;
-                    //     break;
+                    case '/':
+                        sentdc00 = 0xbf;
+                        sentdc01 = 0x7f;
+                        break;
+                    case ';':
+                        sentdc00 = 0xbf;
+                        sentdc01 = 0xfb;
+                        break;
+                    case ':':
+                        sentdc00 = 0xdf;
+                        sentdc01 = 0xdf;
+                        break;
+                    case '@':
+                        sentdc00 = 0xdf;
+                        sentdc01 = 0xbf;
+                        break;
                     default:
                         sentdc00 = 0xff;
                         sentdc01 = 0xff;
@@ -311,6 +324,24 @@ void KonsoolKB::handleKeyPress() {
                     case BSP_INPUT_NAVIGATION_KEY_RETURN:
                         sentdc00 = 0xfe;
                         sentdc01 = 0xfd;
+                        break;
+                    case BSP_INPUT_NAVIGATION_KEY_UP:
+                        sentdc00 = 0xfe;
+                        sentdc01 = 0x7f;
+                        shiftctrlcode |= 1;
+                        break;
+                    case BSP_INPUT_NAVIGATION_KEY_DOWN:
+                        sentdc00 = 0xfe;
+                        sentdc01 = 0x7f;
+                        break;
+                    case BSP_INPUT_NAVIGATION_KEY_LEFT:
+                        sentdc00 = 0xfe;
+                        sentdc01 = 0xfb;
+                        shiftctrlcode |= 1;
+                        break;
+                    case BSP_INPUT_NAVIGATION_KEY_RIGHT:
+                        sentdc00 = 0xfe;
+                        sentdc01 = 0xfb;
                         break;
                     default:
                         sentdc00 = 0xff;

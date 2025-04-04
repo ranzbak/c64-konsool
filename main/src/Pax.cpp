@@ -15,6 +15,7 @@
  http://www.gnu.org/licenses/.
 */
 #include "Config.hpp"
+#include "pax_types.h"
 extern "C" {
 #include <stddef.h>
 #include "bsp/display.h"
@@ -165,7 +166,25 @@ void Pax::drawBitmap(uint16_t* bitmap) {
     }
     raw_fb[0] = 0xff;
     esp_lcd_panel_draw_bitmap(display_lcd_panel, 0, 0, display_h_res, display_v_res, raw_fb);
+
+    // static uint16_t *prev_buf;
+
+    // TODO: remove test
+    // if (c64_buf.buf == NULL) {
+    //     // if(prev_buf != NULL) {
+    //     //     pax_buf_destroy(&c64_buf);
+    //     // }
+    //     pax_buf_init(&this->c64_buf, bitmap, 320, 200, PAX_BUF_16_565RGB);
+    // } 
+
+    // float midpoint_x = display_v_res / 2.0;
+    // float midpoint_y = display_h_res / 2.0;
+    // pax_draw_image(&fb, &c64_buf, midpoint_x - c64_buf.width / 2.0, midpoint_y - c64_buf.height / 2.0);
+    // pax_simple_circle(&fb, pax_col_rgb(255, 0, 0), midpoint_x, midpoint_y, 50);
+
+    // blit();
 }
+
 
 const uint16_t* Pax::getC64Colors() const {
     return c64Colors;

@@ -1,3 +1,5 @@
+#pragma once
+
 /*
  Copyright (C) 2024 retroelec <retroelec42@gmail.com>
 
@@ -14,8 +16,6 @@
  For the complete text of the GNU General Public License see
  http://www.gnu.org/licenses/.
 */
-#ifndef EXTERNALCMDS_H
-#define EXTERNALCMDS_H
 
 class C64Emu;
 
@@ -75,6 +75,7 @@ struct BLENotificationStruct5 {
 
 class ExternalCmds {
 private:
+
   C64Emu *c64emu;
   uint8_t *ram;
   SDCard sdcard;
@@ -89,6 +90,9 @@ private:
   void setType5Notification(uint8_t batteryVolLow, uint8_t batteryVolHi);
 
 public:
+  // TODO: Doesn't work need to look at later
+  enum class ExtCmd; 
+
   bool liststartflag;
 
   BLENotificationStruct1 type1notification;
@@ -100,5 +104,3 @@ public:
   void init(uint8_t *ram, C64Emu *c64emu);
   uint8_t executeExternalCmd(uint8_t *buffer);
 };
-
-#endif // EXTERNALCMDS_H

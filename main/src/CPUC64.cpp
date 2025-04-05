@@ -20,7 +20,6 @@
 #include "C64Emu.hpp"
 #include "JoystickInitializationException.h"
 #include "esp_timer.h"
-#include "freertos/projdefs.h"
 #include "portmacro.h"
 #include "roms/basic.h"
 #include "roms/kernal.h"

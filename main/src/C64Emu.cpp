@@ -21,6 +21,7 @@
 #include "Config.hpp"
 #include "HardwareInitializationException.h"
 #include "VIC.hpp"
+#include "ExternalCmds.hpp"
 #include "driver/timer_types_legacy.h"
 #include "esp_check.h"
 #include "esp_log_level.h"
@@ -233,16 +234,14 @@ void C64Emu::setup() {
     vic.init(ram, charset_rom);
 
     // init ble keyboard
-    // TODO: use Konsool keyboard
     konsoolkb.init(this);
 
     // init CPU
     cpu.init(ram, charset_rom, &vic, this);
 
     // init ExternalCmds (must be initialized after cpu!)
-    // externalCmds.init(ram, this);
-
-
+    ESP_LOGI(TAG, "Initializing ExternalCmds");
+    externalCmds.init(ram, this);
 
     // start cpu task
     xTaskCreatePinnedToCore(cpuCodeWrapper,  // Function to implement the task

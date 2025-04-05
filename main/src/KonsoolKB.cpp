@@ -19,9 +19,8 @@ extern "C" {
 #include "bsp/input.h"
 }
 #include "C64Emu.hpp"
-#include "Config.hpp"
+#include "ExternalCmds.hpp"
 #include "KonsoolKB.hpp"
-// #include "ExternalCmds.h"
 // #include "Joystick.h"
 #include <cstdint>
 #include <cstring>
@@ -73,7 +72,7 @@ void KonsoolKB::init(C64Emu* c64emu) {
 
 void KonsoolKB::handleKeyPress() {
     bsp_input_event_t event;
-    uint8_t key_code;
+    uint8_t           key_code;
 
     // shiftctrlcode = second byte bit 0 -> left shift, bit 1 -> ctrl, bit 2 -> commodore, bit 7 -> external command
     if (xQueueReceive(input_event_queue, &event, pdMS_TO_TICKS(10)) == pdTRUE) {
@@ -85,12 +84,12 @@ void KonsoolKB::handleKeyPress() {
                          (uint8_t)event.args_keyboard.ascii, event.args_keyboard.utf8);
                 this->keypresseddown = true;
                 this->key_hold       = true;
-                
+
                 key_code = event.args_keyboard.ascii;
 
                 if (key_code >= 'A' && key_code <= 'Z') {
-                    key_code += 'a' - 'A';
-                    shiftctrlcode = 1;
+                    key_code      += 'a' - 'A';
+                    shiftctrlcode  = 1;
                 }
 
                 // Translation table https://sta.c64.org/cbm64kbdlay.html
@@ -326,8 +325,8 @@ void KonsoolKB::handleKeyPress() {
                         sentdc01 = 0xfd;
                         break;
                     case BSP_INPUT_NAVIGATION_KEY_UP:
-                        sentdc00 = 0xfe;
-                        sentdc01 = 0x7f;
+                        sentdc00       = 0xfe;
+                        sentdc01       = 0x7f;
                         shiftctrlcode |= 1;
                         break;
                     case BSP_INPUT_NAVIGATION_KEY_DOWN:
@@ -335,14 +334,25 @@ void KonsoolKB::handleKeyPress() {
                         sentdc01 = 0x7f;
                         break;
                     case BSP_INPUT_NAVIGATION_KEY_LEFT:
-                        sentdc00 = 0xfe;
-                        sentdc01 = 0xfb;
+                        sentdc00       = 0xfe;
+                        sentdc01       = 0xfb;
                         shiftctrlcode |= 1;
                         break;
                     case BSP_INPUT_NAVIGATION_KEY_RIGHT:
                         sentdc00 = 0xfe;
                         sentdc01 = 0xfb;
                         break;
+                    case BSP_INPUT_NAVIGATION_KEY_F5: {
+                        uint8_t cmd = 11;
+                        c64emu->externalCmds.executeExternalCmd(&cmd);
+                        break;
+                    }
+                    case BSP_INPUT_NAVIGATION_KEY_F6: {
+
+                        uint8_t cmd = 20;
+                        c64emu->externalCmds.executeExternalCmd(&cmd);
+                        break;
+                    }
                     default:
                         sentdc00 = 0xff;
                         sentdc01 = 0xff;

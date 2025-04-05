@@ -18,6 +18,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <string>
 #include "soc/gpio_num.h"
 extern "C" {
   #include <esp_adc/adc_oneshot.h>
@@ -88,8 +89,10 @@ struct Config {
 #if defined(BOARD_KONSOOL)
 // TODO: Replace with pax setup
 #define USE_SDCARD
+#define SD_CARD_MOUNT_POINT "/sdcard"
 // #define USE_JOYSTICK
 #define USE_PAX
+
 
   static const gpio_num_t PWR_EN = GPIO_NUM_10;
   static const gpio_num_t PWR_ON = GPIO_NUM_14;

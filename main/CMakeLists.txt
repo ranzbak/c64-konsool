@@ -5,6 +5,7 @@ idf_component_register(
 		"src/CIA.cpp"
 		"src/CPU6502.cpp"
 		"src/CPUC64.cpp"
+		"src/ExternalCmds.cpp"
 		"src/Joystick.cpp"
 		"src/KonsoolKB.cpp"
 		"src/Pax.cpp"
@@ -12,7 +13,6 @@ idf_component_register(
 		"src/VIC.cpp"
 		"src/konsoolled.cpp"
 	PRIV_REQUIRES
-		# esp-idf-cxx
 		esp_lcd
 		esp_adc
 		fatfs

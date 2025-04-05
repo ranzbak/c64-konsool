@@ -27,7 +27,7 @@ extern "C" {
 }
 #include "CPUC64.hpp"
 #include "ConfigBoard.hpp"
-// #include "ExternalCmds.hpp"
+#include "ExternalCmds.hpp"
 #include "freertos/idf_additions.h"
 #include "freertos/semphr.h"
 
@@ -91,7 +91,7 @@ class C64Emu {
     CPUC64    cpu;
     // BLEKB blekb;
     KonsoolKB konsoolkb;
-    // ExternalCmds externalCmds;
+    ExternalCmds externalCmds;
     bool      perf           = false;
     uint32_t  batteryVoltage = 0;
 

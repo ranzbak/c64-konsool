@@ -14,16 +14,17 @@
  For the complete text of the GNU General Public License see
  http://www.gnu.org/licenses/.
 */
-#include "ExternalCmds.h"
+#include "ExternalCmds.hpp"
 #include <esp_log.h>
-#include "C64Emu.h"
+#include "C64Emu.hpp"
 #include "listactions.h"
 #include "loadactions.h"
-#include "saveactions.h"
+#include "saveactions.hpp"
+#include "string.h"
 
 static const char* TAG = "ExternalCmds";
 
-enum class ExtCmd {
+enum class ExternalCmds::ExtCmd {
     NOEXTCMD                = 0,
     JOYSTICKMODE1           = 1,
     JOYSTICKMODE2           = 2,
@@ -54,6 +55,10 @@ void ExternalCmds::init(uint8_t* ram, C64Emu* c64emu) {
     this->c64emu    = c64emu;
     sendrawkeycodes = false;
     liststartflag   = true;
+
+    // Setup SDCard
+    // TODO: implement detection of insert and remove SD card
+    sdcard.init();
 }
 
 void ExternalCmds::setType1Notification() {
@@ -63,7 +68,7 @@ void ExternalCmds::setType1Notification() {
     type1notification.sendrawkeycodes        = sendrawkeycodes;
     type1notification.switchdebug            = c64emu->cpu.debug;
     type1notification.switchperf             = c64emu->perf;
-    type1notification.switchdetectreleasekey = c64emu->blekb.detectreleasekey;
+    type1notification.switchdetectreleasekey = c64emu->konsoolkb.detectreleasekey;
 }
 
 void ExternalCmds::setType2Notification() {
@@ -125,7 +130,7 @@ uint8_t ExternalCmds::executeExternalCmd(uint8_t* buffer) {
             bool     error        = false;
             uint16_t addr;
             if (sdcard.init()) {
-                addr = sdcard.load(SD_MMC, ram);
+                addr = sdcard.load(SD_CARD_MOUNT_POINT, ram);
                 if (addr == 0) {
                     ESP_LOGI(TAG, "file not found");
                 } else {
@@ -153,7 +158,7 @@ uint8_t ExternalCmds::executeExternalCmd(uint8_t* buffer) {
             c64emu->cpu.cpuhalted = true;
             bool filesaved        = false;
             if (sdcard.init()) {
-                filesaved = sdcard.save(SD_MMC, ram);
+                filesaved = sdcard.save(SD_CARD_MOUNT_POINT, const_cast<uint8_t*>(ram));
                 if (!filesaved) {
                     ESP_LOGI(TAG, "error saving file");
                 }
@@ -184,7 +189,7 @@ uint8_t ExternalCmds::executeExternalCmd(uint8_t* buffer) {
                 uint8_t filename[17];
                 int     cnt = 0;
                 while (cnt < 23) {
-                    bool success  = sdcard.listnextentry(SD_MMC, filename, liststartflag);
+                    bool success  = sdcard.listNextEntry(filename, sizeof(filename), liststartflag);
                     liststartflag = false;
                     if (success && (filename[0] != '\0')) {
                         // copy filename to c64 ram (0x0342)
@@ -353,14 +358,19 @@ uint8_t ExternalCmds::executeExternalCmd(uint8_t* buffer) {
             setType1Notification();
             return 1;
         case ExtCmd::SWITCHDETECTRELEASEKEY:
-            c64emu->blekb.detectreleasekey = !c64emu->blekb.detectreleasekey;
-            ESP_LOGI(TAG, "detectreleasekey = %x", c64emu->blekb.detectreleasekey);
+            c64emu->konsoolkb.detectreleasekey = !c64emu->konsoolkb.detectreleasekey;
+            ESP_LOGI(TAG, "detectreleasekey = %x", c64emu->konsoolkb.detectreleasekey);
             setType1Notification();
             return 1;
         case ExtCmd::GETBATTERYVOLTAGE: {
             uint32_t voltage = c64emu->batteryVoltage;
             setType5Notification(voltage & 0xff, (voltage >> 8) & 0xff);
             return 5;
+        }
+        case ExtCmd::POWEROFF: {
+            ESP_LOGI(TAG, "power off");
+            c64emu->powerOff();
+            return 0;
         }
 #ifdef BOARD_T_HMI
         case ExtCmd::POWEROFF:

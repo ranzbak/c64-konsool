@@ -16,6 +16,9 @@
  http://www.gnu.org/licenses/.
 */
 
+
+#include <sys/stat.h>
+#include "driver/sdmmc_default_configs.h"
 #include "esp_vfs_fat.h"
 #include "sdmmc_cmd.h"
 #include "driver/sdmmc_host.h"
@@ -24,7 +27,10 @@
 class SDCard {
   private:
       bool initialized;
-      sdmmc_card_t *card;
+      sdmmc_slot_config_t slot_config = SDMMC_SLOT_CONFIG_DEFAULT();
+      sdmmc_host_t        host        = SDMMC_HOST_DEFAULT();
+      sdmmc_card_t        card;
+      sdmmc_card_t*       mount_card;
   
   public:
       SDCard();
@@ -32,8 +38,8 @@ class SDCard {
   
       bool init();
     //   uint16_t load(const char *path, uint8_t *ram, size_t len);
-      uint16_t load(const char *path, uint8_t *ram, size_t len);
-      bool save(const char *path, const uint8_t *ram, size_t len);
-      bool listNextEntry(char *nextEntry, size_t entrySize, bool start);
+      uint16_t load(const char *path, uint8_t *ram, size_t len = 0);
+      bool save(const char *path, const uint8_t *ram, size_t len = 0);
+      bool listNextEntry(uint8_t *nextEntry, size_t entrySize, bool start);
   };
 

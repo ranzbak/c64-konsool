@@ -82,7 +82,6 @@ void setup() {
 }
 
 
-static esp_lcd_panel_io_handle_t panel_io = NULL;
 extern "C" void app_main(void) {
     SemaphoreHandle_t semaphore = NULL;
 

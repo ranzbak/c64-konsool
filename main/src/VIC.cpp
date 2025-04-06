@@ -18,6 +18,7 @@
 #include <cstring>
 #include "Config.hpp"
 #include "DisplayDriver.hpp"
+#include "esp_heap_caps.h"
 
 static const uint16_t* tftColorFromC64ColorArr;
 
@@ -582,7 +583,7 @@ void VIC::init(uint8_t* ram, uint8_t* charrom) {
     this->chrom = charrom;
 
     // allocate bitmap memory to be transfered to LCD
-    bitmap = new uint16_t[320 * (200 + 8)]();
+    bitmap = (uint16_t*)heap_caps_calloc(320 * (200 + 8), sizeof(uint16_t), MALLOC_CAP_32BIT | MALLOC_CAP_SPIRAM);
 
     // div init
     colormap                = new uint8_t[1024]();

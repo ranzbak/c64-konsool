@@ -14,7 +14,11 @@
  For the complete text of the GNU General Public License see
  http://www.gnu.org/licenses/.
 */
+#include <cstdint>
 #include "Config.hpp"
+#include "esp_heap_caps.h"
+#include "esp_log.h"
+#include "hal/ppa_types.h"
 #include "pax_types.h"
 extern "C" {
 #include <stddef.h>
@@ -33,9 +37,12 @@ extern "C" {
 
 // #include <task.h>
 #include "bsp/display.h"
+#include "driver/ppa.h"
 #include "pax_fonts.h"
 #include "pax_gfx.h"
 #include "pax_text.h"
+
+static const char* TAG = "Pax";
 
 // Global variables
 // static esp_lcd_panel_handle_t       display_lcd_panel    = NULL;
@@ -75,16 +82,59 @@ void Pax::init() {
     border_height = (display_h_res - vic_v_height) / 2;
 
     // allocate raw framebuffer memory
-    raw_fb = (uint16_t*)calloc(display_h_res * display_v_res, sizeof(uint16_t));
+    // raw_fb = (uint16_t*)calloc(display_h_res * display_v_res, sizeof(uint16_t));
+    raw_fb = (uint16_t*)heap_caps_calloc(
+        display_v_res * display_v_res,
+        sizeof(uint16_t),
+        MALLOC_CAP_DMA | MALLOC_CAP_SPIRAM
+    );
+
+    ESP_LOGI(TAG, "Register PPA client for SRM operation");
+    ppa_srm_config = {
+        .oper_type             = PPA_OPERATION_SRM,
+        .max_pending_trans_num = 1,
+    };
+    ESP_ERROR_CHECK(ppa_register_client(&ppa_srm_config, &ppa_srm_handle));
+
+    // Off set to the border
+    size_t    x_offset = border_width;
+    size_t    y_offset = display_h_res - border_height / 2;  // Bottom of screen up, start drawing top down
+
+    // Setup rotation and scale configuration
+    // Initialize input configuration
+    Pax::srm_config.in.pic_w = 320;
+    Pax::srm_config.in.pic_h = 200;
+    Pax::srm_config.in.block_w = 320;
+    Pax::srm_config.in.block_h = 200;
+    Pax::srm_config.in.block_offset_x = 0;
+    Pax::srm_config.in.block_offset_y = 0;
+    Pax::srm_config.in.srm_cm = PPA_SRM_COLOR_MODE_RGB565;
+
+    // Initialize output configuration
+    Pax::srm_config.out.buffer = raw_fb;
+    Pax::srm_config.out.buffer_size = display_h_res * display_v_res * 2;
+    Pax::srm_config.out.pic_w = display_h_res;
+    Pax::srm_config.out.pic_h = display_v_res;
+    Pax::srm_config.out.block_offset_x = border_height; // x_offset;
+    Pax::srm_config.out.block_offset_y = border_width; // y_offset;
+    Pax::srm_config.out.srm_cm = PPA_SRM_COLOR_MODE_RGB565;
+
+    // Initialize other configuration parameters
+    Pax::srm_config.rotation_angle = PPA_SRM_ROTATION_ANGLE_270;
+    Pax::srm_config.scale_x = 2.0;
+    Pax::srm_config.scale_y = 2.0;
+    Pax::srm_config.rgb_swap = 0;
+    Pax::srm_config.byte_swap = 0;
+    Pax::srm_config.mode = PPA_TRANS_MODE_BLOCKING;
 
     // Initialize the graphics stack
-    pax_buf_init(&fb, NULL, display_h_res, display_v_res, PAX_BUF_16_565RGB);
-    pax_buf_reversed(&fb, false);
-    pax_buf_set_orientation(&fb, PAX_O_ROT_CW);
+    // pax_buf_init(&fb, NULL, display_h_res, display_v_res, PAX_BUF_16_565RGB);
+    // pax_buf_reversed(&fb, false);
+    // pax_buf_set_orientation(&fb, PAX_O_ROT_CW);
 
-    pax_background(&fb, 0xff887ecb);
-    // pax_draw_text(&fb, 0xff000000, pax_font_sky_mono, 16, 0, 0, "Hello, World!");
-    blit();
+    // pax_background(&fb, 0xff887ecb);
+    // // pax_draw_text(&fb, 0xff000000, pax_font_sky_mono, 16, 0, 0, "Hello, World!");
+    // blit();
 
     // Pax::frame_mem_size = MAX( 320 * Pax::border_height, Pax::border_width * display_h_res);
 }
@@ -148,43 +198,14 @@ void Pax::drawFrame(uint16_t frameColor) {
 }
 
 void Pax::drawBitmap(uint16_t* bitmap) {
-    // uint16_t x_offset = border_width + 200 * 2;
-    // uint16_t y_offset = border_height;
-    uint16_t x_offset = border_width;
-    uint16_t y_offset = border_height + 200 * 2;
+    // Set bitmap to configuration.
+    srm_config.in.buffer = bitmap;
 
-    for (uint16_t y = 0; y < 200; y++) {
-        for (uint16_t x = 0; x < 320; x++) {
-            // Switch x and y to rotate 90 degrees clockwise
-            size_t   write_pos                    = (y_offset - y * 2) + (x_offset + x * 2) * display_h_res;
-            uint16_t c_val                        = bitmap[y * 320 + x];
-            raw_fb[write_pos]                     = c_val;
-            raw_fb[write_pos + 1]                 = c_val;
-            raw_fb[write_pos + display_h_res]     = c_val;
-            raw_fb[write_pos + display_h_res + 1] = c_val;
-        }
-    }
-    raw_fb[0] = 0xff;
-    esp_lcd_panel_draw_bitmap(display_lcd_panel, 0, 0, display_h_res, display_v_res, raw_fb);
-
-    // static uint16_t *prev_buf;
-
-    // TODO: remove test
-    // if (c64_buf.buf == NULL) {
-    //     // if(prev_buf != NULL) {
-    //     //     pax_buf_destroy(&c64_buf);
-    //     // }
-    //     pax_buf_init(&this->c64_buf, bitmap, 320, 200, PAX_BUF_16_565RGB);
-    // } 
-
-    // float midpoint_x = display_v_res / 2.0;
-    // float midpoint_y = display_h_res / 2.0;
-    // pax_draw_image(&fb, &c64_buf, midpoint_x - c64_buf.width / 2.0, midpoint_y - c64_buf.height / 2.0);
-    // pax_simple_circle(&fb, pax_col_rgb(255, 0, 0), midpoint_x, midpoint_y, 50);
-
-    // blit();
+    // Use PPA to rotate and scale the bitmap to the display.
+    ESP_ERROR_CHECK(ppa_do_scale_rotate_mirror(ppa_srm_handle, &srm_config));
+    // Send the frame to the display over MIPI DSI.
+    ESP_ERROR_CHECK(esp_lcd_panel_draw_bitmap(display_lcd_panel, 0, 0, display_h_res, display_v_res, raw_fb));
 }
-
 
 const uint16_t* Pax::getC64Colors() const {
     return c64Colors;

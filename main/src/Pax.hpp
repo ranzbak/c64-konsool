@@ -19,6 +19,7 @@
 #include <cstdint>
 #include "Config.hpp"
 #include "DisplayDriver.hpp"
+#include "driver/ppa.h"
 #include "esp_lcd_types.h"
 #include "hal/lcd_types.h"
 #include "pax_types.h"
@@ -52,7 +53,7 @@ class Pax : public DisplayDriver {
     pax_buf_t c64_buf;
 
     pax_buf_t                    fb;
-    uint16_t*                     raw_fb;
+    uint16_t*                    raw_fb;
     esp_lcd_panel_handle_t       display_lcd_panel;
     esp_lcd_panel_io_handle_t    display_lcd_panel_io;
     lcd_color_rgb_pixel_format_t display_color_format;
@@ -61,6 +62,10 @@ class Pax : public DisplayDriver {
     size_t                       display_h_res;
     size_t                       display_v_res;
     uint16_t                     frame_mem_size;
+
+    ppa_client_handle_t   ppa_srm_handle = NULL;
+    ppa_client_config_t   ppa_srm_config;
+    ppa_srm_oper_config_t srm_config;
 
     const uint16_t c64Colors[16] = {c64_black, c64_white,      c64_red,       c64_turquoise, c64_purple,   c64_green,
                                     c64_blue,  c64_yellow,     c64_orange,    c64_brown,     c64_lightred, c64_grey1,

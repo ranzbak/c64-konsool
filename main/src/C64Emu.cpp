@@ -163,14 +163,16 @@ void IRAM_ATTR C64Emu::interruptTODFunc() {
     }
 }
 
-void IRAM_ATTR C64Emu::interruptSystemFunc() {
+void C64Emu::handleKeyboardFunc() {
     // check for keyboard inputs ca. each 8 ms
     checkForKeyboardCnt++;
     if (checkForKeyboardCnt == 8) {
         konsoolkb.handleKeyPress();
         checkForKeyboardCnt = 0;
     }
+}
 
+void IRAM_ATTR C64Emu::interruptSystemFunc() {
     // throttle 6502 CPU
     throttlingCnt++;
     uint16_t measuredcyclestmp = cpu.measuredcycles.load(std::memory_order_acquire);
@@ -254,7 +256,7 @@ void C64Emu::setup() {
 
     // Interrupt handler for keyboard IO (keyboard)
     xTaskCreatePinnedToCore(
-        interruptSystemFuncWrapper, 
+        handleKeyboardFuncWrapper, 
         "interruptSystem", 
         4096, 
         NULL, 
@@ -268,6 +270,17 @@ void C64Emu::setup() {
     // interruptSystem = timerBegin(1000000);
     // timerAttachInterrupt(interruptSystem, &interruptSystemFuncWrapper);
     // timerAlarm(interruptSystem, Config::INTERRUPTSYSTEMRESOLUTION, true, 0);
+
+    ESP_LOGI(TAG, "Setup Inturrupt System timer.");
+
+    const esp_timer_create_args_t timer_args = {
+        .callback = &interruptSystemFuncWrapper,
+        .arg = NULL,
+        .name = "interrupt_timer"
+    };
+
+    esp_timer_create(&timer_args, &interrupt_timer);
+    esp_timer_start_periodic(interrupt_timer, Config::INTERRUPTSYSTEMRESOLUTION); // in microseconds
 
     // profiling + battery check: interrupt each second
     // TODO: Implement battery check using BSP

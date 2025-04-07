@@ -137,7 +137,7 @@ struct Config {
   //     "3b05e9bf-086f-4b56-9c37-7b7eeb30b28b";
 
   // resolution of system timer (throttling 6502 CPU, get BLE KB codes)
-  static const uint16_t INTERRUPTSYSTEMRESOLUTION = 50;
+  static const uint16_t INTERRUPTSYSTEMRESOLUTION = 1000;
 
   // number of "steps" to average throttling
   static const uint8_t THROTTELINGNUMSTEPS = 50;

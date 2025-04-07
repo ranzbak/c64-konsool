@@ -40,12 +40,18 @@ class C64Emu {
         }
     }
 
-    static void interruptSystemFuncWrapper(void* parameter) {
+    static void handleKeyboardFuncWrapper(void* parameter) {
         while (true) {
             if (instance != nullptr) {
-                instance->interruptSystemFunc();
-                vTaskDelay(1 / portTICK_PERIOD_MS);
+                instance->handleKeyboardFunc();
             }
+            vTaskDelay(10 / portTICK_PERIOD_MS);
+        }
+    }
+
+    static void interruptSystemFuncWrapper(void* parameter) {
+        if (instance != nullptr) {
+            instance->interruptSystemFunc();
         }
     }
     // static void interruptProfilingBatteryCheckFuncWrapper() {
@@ -60,7 +66,6 @@ class C64Emu {
     }
 
     static SemaphoreHandle_t lcdRefreshSem;
-
 
     uint8_t*    ram;
     ConfigBoard configBoard;
@@ -77,7 +82,9 @@ class C64Emu {
     esp_timer_handle_t* interruptSystem                = NULL;
     TaskHandle_t        cpuTask;
     TaskHandle_t        interruptTask;
+    esp_timer_handle_t  interrupt_timer;
 
+    void handleKeyboardFunc();
     void interruptTODFunc();
     void interruptSystemFunc();
     // void interruptProfilingBatteryCheckFunc();
@@ -88,12 +95,12 @@ class C64Emu {
     adc_cali_handle_t         adc_cali_handle;
 
    public:
-    CPUC64    cpu;
+    CPUC64       cpu;
     // BLEKB blekb;
-    KonsoolKB konsoolkb;
+    KonsoolKB    konsoolkb;
     ExternalCmds externalCmds;
-    bool      perf           = false;
-    uint32_t  batteryVoltage = 0;
+    bool         perf           = false;
+    uint32_t     batteryVoltage = 0;
 
     void powerOff();
     void setup();

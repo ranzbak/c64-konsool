@@ -75,12 +75,11 @@ void setup() {
         while (true) {
         }
     }
-    vTaskDelay( 1000 / portTICK_PERIOD_MS);
+    vTaskDelay(1000 / portTICK_PERIOD_MS);
     ESP_LOGI(TAG, "Setup TE refresh interrupt");
     ESP_ERROR_CHECK(bsp_display_set_tearing_effect_mode(BSP_DISPLAY_TE_V_BLANKING));
     ESP_LOGI(TAG, "setup done");
 }
-
 
 extern "C" void app_main(void) {
     SemaphoreHandle_t semaphore = NULL;
@@ -102,12 +101,10 @@ extern "C" void app_main(void) {
 
     bsp_display_get_tearing_effect_semaphore(&semaphore);
 
-    // Main loop to run the C64 emulator and the display driver.
-    
+    // Main loop outputs C64 screen contents to the display
     while (true) {
-        // TODO: Find out later why this is necessary
-        xSemaphoreTake(semaphore, 100/portTICK_PERIOD_MS);
-        xSemaphoreTake(semaphore, 100/portTICK_PERIOD_MS);
+        // Wait for display refresh signal
+        xSemaphoreTake(semaphore, 100 / portTICK_PERIOD_MS);
 
         c64Emu.loop();
     }

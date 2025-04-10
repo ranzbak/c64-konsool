@@ -83,7 +83,6 @@ uint8_t CPUC64::getMem(uint16_t addr) {
             if (ciaidx == 0x00) {
                 uint8_t ddra  = cia1.ciareg[0x02];
                 uint8_t input = 0xff;
-                // TODO: Replace with Tanmatsu input
                 if (joystickmode == 2) {
                     // real joystick, but still check for keyboard input
                     input = c64emu->konsoolkb.getdc01(cia1.ciareg[0x01], true);
@@ -455,6 +454,17 @@ void CPUC64::run() {
         // execute CPU cycles and check CIA timers
         // (4 = average number of cycles for an instruction)
         numofcycles              = 0;
+        // TODO: Replace by bad cycle map
+        // During bad cycles 40 cycles need to be wasted + bus take = 11-54 43 cycles
+        // For every sprite enabled and active on the line, 2 cycles before + 1 after
+        // Sprite 0 57-58
+        // Sprite 1 59-60
+        // Sprite 2 61-62
+        // Sprite 3 00-01
+        // Sprite 4 02-03
+        // Sprite 5 04-05
+        // Sprite 6 06-07
+        // Sprite 7 08-09
         uint8_t numofcyclestoexe = 63 - (4 / 2) - badlinecycles;
         uint8_t n                = 1;
         if (badlinecycles == 0) {

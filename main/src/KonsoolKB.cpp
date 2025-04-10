@@ -14,30 +14,31 @@
  For the complete text of the GNU General Public License see
  http://www.gnu.org/licenses/.
 */
+#include "menuoverlay/MenuTypes.hpp"
 extern "C" {
 #include <esp_log.h>
 #include "bsp/input.h"
 }
-#include "C64Emu.hpp"
-#include "ExternalCmds.hpp"
-#include "KonsoolKB.hpp"
-// #include "Joystick.h"
 #include <cstdint>
 #include <cstring>
 #include <konsoolled.hpp>
+#include "C64Emu.hpp"
+#include "ExternalCmds.hpp"
+#include "Joystick.hpp"
+#include "KonsoolKB.hpp"
 
 static const char* TAG = "KonsoolKB";
 
 static const uint8_t NUMOFCYCLES_KEYPRESSEDDOWN = 16;
 
-// static const uint8_t VIRTUALJOYSTICKLEFT_ACTIVATED    = 0x01;
-// static const uint8_t VIRTUALJOYSTICKLEFT_DEACTIVATED  = 0x81;
-// static const uint8_t VIRTUALJOYSTICKRIGHT_ACTIVATED   = 0x02;
-// static const uint8_t VIRTUALJOYSTICKRIGHT_DEACTIVATED = 0x82;
-// static const uint8_t VIRTUALJOYSTICKUP_ACTIVATED      = 0x04;
-// static const uint8_t VIRTUALJOYSTICKUP_DEACTIVATED    = 0x84;
-// static const uint8_t VIRTUALJOYSTICKDOWN_ACTIVATED    = 0x08;
-// static const uint8_t VIRTUALJOYSTICKDOWN_DEACTIVATED  = 0x88;
+static const uint8_t VIRTUALJOYSTICKLEFT_ACTIVATED    = 0x01;
+static const uint8_t VIRTUALJOYSTICKLEFT_DEACTIVATED  = 0x81;
+static const uint8_t VIRTUALJOYSTICKRIGHT_ACTIVATED   = 0x02;
+static const uint8_t VIRTUALJOYSTICKRIGHT_DEACTIVATED = 0x82;
+static const uint8_t VIRTUALJOYSTICKUP_ACTIVATED      = 0x04;
+static const uint8_t VIRTUALJOYSTICKUP_DEACTIVATED    = 0x84;
+static const uint8_t VIRTUALJOYSTICKDOWN_ACTIVATED    = 0x08;
+static const uint8_t VIRTUALJOYSTICKDOWN_DEACTIVATED  = 0x88;
 
 KonsoolKB::KonsoolKB() {
     buffer = nullptr;
@@ -51,8 +52,9 @@ void KonsoolKB::init(C64Emu* c64emu) {
         return;
     }
 
-    this->c64emu     = c64emu;
-    this->konsoleled = new KonsoleLED();
+    this->c64emu         = c64emu;
+    this->konsoleled     = new KonsoleLED();
+    this->menuController = &c64emu->menuController;
 
     konsoleled->init();
 
@@ -73,6 +75,10 @@ void KonsoolKB::init(C64Emu* c64emu) {
 void KonsoolKB::handleKeyPress() {
     bsp_input_event_t event;
     uint8_t           key_code;
+
+    if (this->display == nullptr) {
+        this->display = c64emu->cpu.vic->getDriver();
+    }
 
     // shiftctrlcode = second byte bit 0 -> left shift, bit 1 -> ctrl, bit 2 -> commodore, bit 7 -> external command
     if (xQueueReceive(input_event_queue, &event, pdMS_TO_TICKS(10)) == pdTRUE) {
@@ -188,7 +194,7 @@ void KonsoolKB::handleKeyPress() {
                         break;
                     case 'x':
                         sentdc00 = 0xfb;
-                        sentdc01 = 0xf7;
+                        sentdc01 = 0x7f;
                         break;
                     case 'y':
                         sentdc00 = 0xf7;
@@ -321,17 +327,29 @@ void KonsoolKB::handleKeyPress() {
                         sentdc01 = 0xfe;
                         break;
                     case BSP_INPUT_NAVIGATION_KEY_RETURN:
-                        sentdc00 = 0xfe;
-                        sentdc01 = 0xfd;
+                        if (menuController->getVisible()) {
+                            menuController->handleInput(MENU_OVERLAY_INPUT_TYPE_SELECT);
+                        } else {
+                            sentdc00 = 0xfe;
+                            sentdc01 = 0xfd;
+                        }
                         break;
                     case BSP_INPUT_NAVIGATION_KEY_UP:
-                        sentdc00       = 0xfe;
-                        sentdc01       = 0x7f;
-                        shiftctrlcode |= 1;
+                        if (menuController->getVisible()) {
+                            menuController->handleInput(MENU_OVERLAY_INPUT_TYPE_UP);
+                        } else {
+                            sentdc00       = 0xfe;
+                            sentdc01       = 0x7f;
+                            shiftctrlcode |= 1;
+                        }
                         break;
                     case BSP_INPUT_NAVIGATION_KEY_DOWN:
-                        sentdc00 = 0xfe;
-                        sentdc01 = 0x7f;
+                        if (menuController->getVisible()) {
+                            menuController->handleInput(MENU_OVERLAY_INPUT_TYPE_DOWN);
+                        } else {
+                            sentdc00 = 0xfe;
+                            sentdc01 = 0x7f;
+                        }
                         break;
                     case BSP_INPUT_NAVIGATION_KEY_LEFT:
                         sentdc00       = 0xfe;
@@ -342,15 +360,23 @@ void KonsoolKB::handleKeyPress() {
                         sentdc00 = 0xfe;
                         sentdc01 = 0xfb;
                         break;
-                    case BSP_INPUT_NAVIGATION_KEY_F5: {
-                        uint8_t cmd = 11;
-                        c64emu->externalCmds.executeExternalCmd(&cmd);
+                    case BSP_INPUT_NAVIGATION_KEY_F5:
+                        sentdc00 = 0xfe;
+                        sentdc01 = 0xbf;
                         break;
-                    }
                     case BSP_INPUT_NAVIGATION_KEY_F6: {
-
-                        uint8_t cmd = 20;
-                        c64emu->externalCmds.executeExternalCmd(&cmd);
+                        if (event.args_navigation.state == true) {
+                            menuController->toggle();
+                            display->enableMenuOverlay(menuController->getVisible());
+                        }
+                        // if (event.args_keyboard.modifiers & BSP_INPUT_MODIFIER_SHIFT_L) {
+                        //     uint8_t cmd = 20; // RESET
+                        //     c64emu->externalCmds.executeExternalCmd(&cmd);
+                        // }
+                        // if (event.args_keyboard.modifiers) {
+                        //     uint8_t cmd = 11; // LOAD
+                        //     c64emu->externalCmds.executeExternalCmd(&cmd);
+                        // }
                         break;
                     }
                     default:
@@ -369,9 +395,9 @@ void KonsoolKB::handleKeyPress() {
                 break;
         }
         // Handle modifier keys
-        if (event.args_keyboard.modifiers & BSP_INPUT_MODIFIER_SHIFT_L) {
-            shiftctrlcode = 1;
-        }
+        // if (event.args_keyboard.modifiers & BSP_INPUT_MODIFIER_SHIFT_L) {
+        //     shiftctrlcode = 1;
+        // }
         if (event.args_keyboard.modifiers & BSP_INPUT_MODIFIER_CTRL) {
             shiftctrlcode |= 2;
         }

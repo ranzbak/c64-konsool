@@ -15,6 +15,7 @@
  http://www.gnu.org/licenses/.
 */
 #include "VIC.hpp"
+#include <cstdint>
 #include <cstring>
 #include "Config.hpp"
 #include "DisplayDriver.hpp"
@@ -561,7 +562,7 @@ void VIC::initVarsAndRegs() {
     vicreg[0x1a] = 0xf0;
 
     cntRefreshs    = 0;
-    syncd020       = 0;
+    syncd020       = 255;
     vicmem         = 0;
     bitmapstart    = 0x2000;
     screenmemstart = 1024;
@@ -583,7 +584,8 @@ void VIC::init(uint8_t* ram, uint8_t* charrom) {
     this->chrom = charrom;
 
     // allocate bitmap memory to be transfered to LCD
-    bitmap = (uint16_t*)heap_caps_calloc(320 * (200 + 8), sizeof(uint16_t), MALLOC_CAP_32BIT | MALLOC_CAP_SPIRAM);
+    bitmap       = (uint16_t*)heap_caps_calloc(320 * (200 + 8), sizeof(uint16_t), MALLOC_CAP_DMA | MALLOC_CAP_SPIRAM);
+    bordercolors = (uint16_t*)heap_caps_calloc(200, sizeof(uint16_t), MALLOC_CAP_DMA | MALLOC_CAP_SPIRAM);
 
     // div init
     colormap                = new uint8_t[1024]();
@@ -592,11 +594,7 @@ void VIC::init(uint8_t* ram, uint8_t* charrom) {
 }
 
 void VIC::checkFrameColor() {
-    uint8_t framecol = vicreg[0x20] & 15;
-    if (framecol != syncd020) {
-        syncd020 = framecol;
-        configDisplay.displayDriver->drawFrame(tftColorFromC64ColorArr[framecol]);
-    }
+    configDisplay.displayDriver->drawFrame(bordercolors);
 }
 
 void VIC::refresh(bool refreshframecolor) {
@@ -668,5 +666,6 @@ void VIC::drawRasterline() {
             }
         }
         drawSprites(line + deltay - 3);
+        bordercolors[dline] = tftColorFromC64ColorArr[vicreg[0x20] & 15];
     }
 }

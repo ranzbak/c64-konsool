@@ -133,6 +133,25 @@ void getPath(char *path, uint8_t *ram) {
   }
 
 uint16_t SDCard::load(const char* path, uint8_t* ram, size_t len) {
+    char full_path[128];
+    snprintf(full_path, sizeof(full_path), "%s%s", SD_CARD_MOUNT_POINT, path);
+    int fd = open(full_path, O_RDONLY);
+    if (fd < 0) return 0;
+
+    uint8_t hdr[2];
+    if (read(fd, hdr, 2) != 2) {
+        close(fd);
+        return 0;
+    }
+    uint16_t addr = hdr[0] | (hdr[1] << 8);
+    uint16_t pos  = addr;
+    while (read(fd, &ram[pos], 1) == 1) pos++;
+    close(fd);
+    return pos;
+}
+
+
+uint16_t SDCard::load_auto(const char* path, uint8_t* ram, size_t len) {
     char file_path[64] = {0};
     if (!initialized) return 0;
     getPath(file_path, ram);
@@ -154,6 +173,8 @@ uint16_t SDCard::load(const char* path, uint8_t* ram, size_t len) {
     close(fd);
     return pos;
 }
+
+
 
 bool SDCard::save(const char* path, const uint8_t* ram, size_t len) {
     if (!initialized) return false;

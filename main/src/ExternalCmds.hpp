@@ -19,88 +19,89 @@
 
 class C64Emu;
 
-#include "SDCard.hpp"
 #include <cstdint>
+#include "SDCard.hpp"
 
 // notifications may be not larger than 20 bytes
 
 struct BLENotificationStruct1 {
-  uint8_t type;
-  uint8_t joymode;
-  uint8_t deactivateCIA2;
-  uint8_t sendrawkeycodes;
-  uint8_t switchdebug;
-  uint8_t switchperf;
-  uint8_t switchdetectreleasekey;
+    uint8_t type;
+    uint8_t joymode;
+    uint8_t deactivateCIA2;
+    uint8_t sendrawkeycodes;
+    uint8_t switchdebug;
+    uint8_t switchperf;
+    uint8_t switchdetectreleasekey;
 };
 
 struct BLENotificationStruct2 {
-  uint8_t type;
-  uint8_t cpuRunning;
-  uint16_t pc;
-  uint8_t a;
-  uint8_t x;
-  uint8_t y;
-  uint8_t sr;
-  uint8_t d011;
-  uint8_t d016;
-  uint8_t d018;
-  uint8_t d019;
-  uint8_t d01a;
-  uint8_t register1;
-  uint8_t dc0d;
-  uint8_t dc0e;
-  uint8_t dc0f;
-  uint8_t dd0d;
-  uint8_t dd0e;
-  uint8_t dd0f;
+    uint8_t  type;
+    uint8_t  cpuRunning;
+    uint16_t pc;
+    uint8_t  a;
+    uint8_t  x;
+    uint8_t  y;
+    uint8_t  sr;
+    uint8_t  d011;
+    uint8_t  d016;
+    uint8_t  d018;
+    uint8_t  d019;
+    uint8_t  d01a;
+    uint8_t  register1;
+    uint8_t  dc0d;
+    uint8_t  dc0e;
+    uint8_t  dc0f;
+    uint8_t  dd0d;
+    uint8_t  dd0e;
+    uint8_t  dd0f;
 };
 
-static const uint8_t BLENOTIFICATIONTYPE3NUMOFBYTES =
-    16; // must be divisible by 8
+static const uint8_t BLENOTIFICATIONTYPE3NUMOFBYTES = 16;  // must be divisible by 8
 struct BLENotificationStruct3 {
-  uint8_t type;
-  uint8_t mem[BLENOTIFICATIONTYPE3NUMOFBYTES];
+    uint8_t type;
+    uint8_t mem[BLENOTIFICATIONTYPE3NUMOFBYTES];
 };
 
 struct BLENotificationStruct4 {
-  uint8_t type;
+    uint8_t type;
 };
 
 struct BLENotificationStruct5 {
-  uint8_t type;
-  uint8_t batteryVolLow;
-  uint8_t batteryVolHi;
+    uint8_t type;
+    uint8_t batteryVolLow;
+    uint8_t batteryVolHi;
 };
 
 class ExternalCmds {
-private:
+   private:
+    C64Emu*  c64emu;
+    uint8_t* ram;
+    SDCard   sdcard;
+    bool     sendrawkeycodes;
+    uint16_t actaddrreceivecmd;
 
-  C64Emu *c64emu;
-  uint8_t *ram;
-  SDCard sdcard;
-  bool sendrawkeycodes;
-  uint16_t actaddrreceivecmd;
+    bool initialized = false;
 
-  void setVarTab(uint16_t addr);
-  void setType1Notification();
-  void setType2Notification();
-  void setType3Notification(uint16_t addr);
-  void setType4Notification();
-  void setType5Notification(uint8_t batteryVolLow, uint8_t batteryVolHi);
+    void setVarTab(uint16_t addr);
+    void setType1Notification();
+    void setType2Notification();
+    void setType3Notification(uint16_t addr);
+    void setType4Notification();
+    void setType5Notification(uint8_t batteryVolLow, uint8_t batteryVolHi);
 
-public:
-  // TODO: Doesn't work need to look at later
-  enum class ExtCmd; 
+   public:
+    // TODO: Doesn't work need to look at later
+    enum class ExtCmd;
 
-  bool liststartflag;
+    bool liststartflag;
 
-  BLENotificationStruct1 type1notification;
-  BLENotificationStruct2 type2notification;
-  BLENotificationStruct3 type3notification;
-  BLENotificationStruct4 type4notification;
-  BLENotificationStruct5 type5notification;
+    BLENotificationStruct1 type1notification;
+    BLENotificationStruct2 type2notification;
+    BLENotificationStruct3 type3notification;
+    BLENotificationStruct4 type4notification;
+    BLENotificationStruct5 type5notification;
 
-  void init(uint8_t *ram, C64Emu *c64emu);
-  uint8_t executeExternalCmd(uint8_t *buffer);
+    void    init(uint8_t* ram, C64Emu* c64emu);
+    bool    loadPrg(const char* filename);
+    uint8_t executeExternalCmd(uint8_t* buffer);
 };

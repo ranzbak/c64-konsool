@@ -39,6 +39,7 @@ class SDCard {
       bool init();
     //   uint16_t load(const char *path, uint8_t *ram, size_t len);
       uint16_t load(const char *path, uint8_t *ram, size_t len = 0);
+      uint16_t load_auto(const char *path, uint8_t *ram, size_t len = 0);
       bool save(const char *path, const uint8_t *ram, size_t len = 0);
       bool listNextEntry(uint8_t *nextEntry, size_t entrySize, bool start);
   };

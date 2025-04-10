@@ -51,6 +51,9 @@ enum class ExternalCmds::ExtCmd {
 };
 
 void ExternalCmds::init(uint8_t* ram, C64Emu* c64emu) {
+    if (initialized == true) {
+        return;
+    };
     this->ram       = ram;
     this->c64emu    = c64emu;
     sendrawkeycodes = false;
@@ -118,6 +121,38 @@ void ExternalCmds::setVarTab(uint16_t addr) {
     c64emu->cpu.setPC(0xa52a);
 }
 
+bool ExternalCmds::loadPrg(const char* filename) {
+    ESP_LOGI(TAG, "load from sdcard...");
+    c64emu->cpu.cpuhalted = true;
+    bool     fileloaded   = false;
+    bool     error        = false;
+    uint16_t addr;
+    if (sdcard.init()) {
+        std::string full_name = (std::string("/") + filename + ".prg").c_str();
+        addr                  = sdcard.load(full_name.c_str(), ram);
+        if (addr == 0) {
+            ESP_LOGI(TAG, "file not found %s", full_name.c_str());
+        } else {
+            setVarTab(addr);
+            fileloaded = true;
+        }
+    } else {
+        error = true;
+        ESP_LOGI(TAG, "error init sdcard");
+    }
+    addr = src_loadactions_prg[0] + (src_loadactions_prg[1] << 8);
+    memcpy(ram + addr, src_loadactions_prg + 2, src_loadactions_prg_len - 2);
+    if (fileloaded) {
+        c64emu->cpu.exeSubroutine(addr, 1, 0, 0);
+    } else if (error) {
+        c64emu->cpu.exeSubroutine(addr, 0, 1, 0);
+    } else {
+        c64emu->cpu.exeSubroutine(addr, 0, 0, 0);
+    }
+    c64emu->cpu.cpuhalted = false;
+    return 0;
+}
+
 uint8_t ExternalCmds::executeExternalCmd(uint8_t* buffer) {
     ExtCmd cmd = static_cast<ExtCmd>(buffer[0]);
     switch (cmd) {
@@ -130,7 +165,7 @@ uint8_t ExternalCmds::executeExternalCmd(uint8_t* buffer) {
             bool     error        = false;
             uint16_t addr;
             if (sdcard.init()) {
-                addr = sdcard.load(SD_CARD_MOUNT_POINT, ram);
+                addr = sdcard.load_auto(SD_CARD_MOUNT_POINT, ram);
                 if (addr == 0) {
                     ESP_LOGI(TAG, "file not found");
                 } else {

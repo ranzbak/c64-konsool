@@ -18,23 +18,29 @@
 */
 #include <cstdint>
 #include <string>
+#include "DisplayDriver.hpp"
 #include "bsp/input.h"
 #include "freertos/idf_additions.h"
 #include "konsoolled.hpp"
+#include "menuoverlay/MenuController.hpp"
 
 class C64Emu;
 class ExternalCmds;
 
 class KonsoolKB {
    private:
-    C64Emu*     c64emu;
-    KonsoleLED* konsoleled;
-    uint8_t     sentdc01;
-    uint8_t     sentdc00;
+    C64Emu*         c64emu;
+    KonsoleLED*     konsoleled;
+    DisplayDriver*  display;
+    MenuController* menuController;
+    uint8_t         sentdc01;
+    uint8_t         sentdc00;
 
     QueueHandle_t input_event_queue;
 
     uint16_t key_hold;
+
+    bool menu_overlay_active = false;
 
    public:
     bool     deviceConnected;

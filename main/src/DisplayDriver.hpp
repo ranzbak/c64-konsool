@@ -18,14 +18,18 @@
 #define DISPLAYDRIVER_H
 
 #include <cstdint>
+#include "pax_types.h"
 
 class DisplayDriver {
-public:
-  virtual void init() = 0;
-  virtual void drawFrame(uint16_t frameColor) = 0;
-  virtual void drawBitmap(uint16_t *bitmap) = 0;
-  virtual const uint16_t *getC64Colors() const = 0;
-  virtual ~DisplayDriver() {}
+   public:
+    virtual void            init()                           = 0;
+    virtual void            drawFrame(uint16_t* frameColors) = 0;
+    virtual void            drawBitmap(uint16_t* bitmap)     = 0;
+    virtual void            enableMenuOverlay(bool enable);
+    virtual pax_buf_t*      getMenuFb();
+    virtual const uint16_t* getC64Colors() const = 0;
+    virtual ~DisplayDriver() {
+    }
 };
 
-#endif // DISPLAYDRIVER_H
+#endif  // DISPLAYDRIVER_H

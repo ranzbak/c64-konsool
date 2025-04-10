@@ -63,18 +63,22 @@ class Pax : public DisplayDriver {
     size_t                       display_v_res;
     uint16_t                     frame_mem_size;
 
-    ppa_client_handle_t   ppa_srm_handle = NULL;
-    ppa_client_config_t   ppa_srm_config;
-    ppa_srm_oper_config_t srm_config;
+    // Text rendering buffer
+    pax_buf_t buffer;
+
+    // PPA blitting handles
+    ppa_client_handle_t    ppa_srm_handle  = NULL;
+    ppa_client_handle_t    ppa_fill_handle = NULL;
+    ppa_client_config_t    ppa_srm_config;
+    ppa_client_config_t    ppa_fill_config;
+    ppa_srm_oper_config_t  active_config;
+    ppa_fill_oper_config_t fill_config;
 
     const uint16_t c64Colors[16] = {c64_black, c64_white,      c64_red,       c64_turquoise, c64_purple,   c64_green,
                                     c64_blue,  c64_yellow,     c64_orange,    c64_brown,     c64_lightred, c64_grey1,
                                     c64_grey2, c64_lightgreen, c64_lightblue, c64_grey3};
 
-    //   const uint16_t BORDERWIDTH = (display_h_res - 320) / 2;
-    //   const uint16_t BORDERHEIGHT = (display_v_res - 200) / 2;
-    //   const uint16_t FRAMEMEMSIZE =
-    //   MAX(320 * BORDERHEIGHT, BORDERWIDTH *Config::LCDHEIGHT);
+    bool menu_overlay_enabled = true;
 
     inline static void writeCmd(uint8_t cmd) __attribute__((always_inline));
     inline static void writeData(uint8_t data) __attribute__((always_inline));
@@ -82,13 +86,16 @@ class Pax : public DisplayDriver {
     inline static void copycopy(uint16_t data, uint32_t clearMask) __attribute__((always_inline));
     inline static void copyend() __attribute__((always_inline));
 
-    void blit(void);
-    void copyColor(uint16_t x0, uint16_t y0, uint16_t w, uint16_t h, uint16_t data);
-    void copyData(uint16_t x0, uint16_t y0, uint16_t w, uint16_t h, uint16_t* data);
+    uint32_t rgb565ToRgb8888(uint16_t rgb565);
+    void     blit(void);
+    void     copyColor(uint16_t x0, uint16_t y0, uint16_t w, uint16_t h, uint16_t data);
+    void     drawMenuOverlay();
 
    public:
-    void            init() override;
-    void            drawFrame(uint16_t frameColor) override;
-    void            drawBitmap(uint16_t* bitmap) override;
-    const uint16_t* getC64Colors() const override;
+    void               init() override;
+    void               drawFrame(uint16_t* frameColors) override;
+    void               drawBitmap(uint16_t* bitmap) override;
+    const uint16_t*    getC64Colors() const override;
+    void               enableMenuOverlay(bool enable) override;
+    virtual pax_buf_t* getMenuFb() override;
 };

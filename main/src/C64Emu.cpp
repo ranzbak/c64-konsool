@@ -241,6 +241,9 @@ void C64Emu::setup() {
     // init CPU
     cpu.init(ram, charset_rom, &vic, this);
 
+    // init Menu system
+    menuController.init(this);
+
     // init ExternalCmds (must be initialized after cpu!)
     ESP_LOGI(TAG, "Initializing ExternalCmds");
     externalCmds.init(ram, this);

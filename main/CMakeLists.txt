@@ -12,6 +12,10 @@ idf_component_register(
 		"src/SDCard.cpp"
 		"src/VIC.cpp"
 		"src/konsoolled.cpp"
+		"src/menuoverlay/MenuController.cpp"
+		"src/menuoverlay/MenuBaseClass.cpp"
+		"src/menuoverlay/mainMenu.cpp"
+		"src/menuoverlay/LoadMenu.cpp"
 	PRIV_REQUIRES
 		esp_lcd
 		esp_adc

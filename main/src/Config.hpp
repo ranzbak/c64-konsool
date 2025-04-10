@@ -16,9 +16,7 @@
  http://www.gnu.org/licenses/.
 */
 
-#include <cstddef>
 #include <cstdint>
-#include <string>
 #include "soc/gpio_num.h"
 extern "C" {
   #include <esp_adc/adc_oneshot.h>
@@ -90,7 +88,7 @@ struct Config {
 // TODO: Replace with pax setup
 #define USE_SDCARD
 #define SD_CARD_MOUNT_POINT "/sdcard"
-// #define USE_JOYSTICK
+#define USE_JOYSTICK
 #define USE_PAX
 
 
@@ -101,7 +99,7 @@ struct Config {
   // DisplayDriver (considering a possible rotation)
   static const uint16_t LCDWIDTH = 0;
   static const uint16_t LCDHEIGHT = 0;
-  static const uint16_t REFRESHDELAY = 16;
+  static const uint16_t REFRESHDELAY = 1;
 
   // LCD Display IO
   static const gpio_num_t LCDTE = GPIO_NUM_11;
@@ -113,10 +111,11 @@ struct Config {
   static const gpio_num_t SD_CS_PIN = GPIO_NUM_42;
 
   // Joystick
-  static const adc_channel_t ADC_JOYSTICK_X = ADC_CHANNEL_4;
-  static const adc_channel_t ADC_JOYSTICK_Y = ADC_CHANNEL_5;
-  static const gpio_num_t JOYSTICK_FIRE_PIN = GPIO_NUM_18;
-  static const gpio_num_t JOYSTICK_FIRE2_PIN = GPIO_NUM_17;
+  static const gpio_num_t JOYSTICK_LEFT = GPIO_NUM_2;    // MTCK GPIO_2
+  static const gpio_num_t JOYSTICK_RIGHT = GPIO_NUM_3;   // MTDI GPIO_3
+  static const gpio_num_t JOYSTICK_UP = GPIO_NUM_4;      // MTMS GPIO_4
+  static const gpio_num_t JOYSTICK_DOWN = GPIO_NUM_15;    // SAO_IO1 GPIO_15
+  static const gpio_num_t JOYSTICK_FIRE_PIN = GPIO_NUM_13; // SAO_SCL GPIO_13
 
 
 #elif defined(BOARD_T_DISPLAY_S3)
@@ -129,12 +128,6 @@ struct Config {
   static const uint16_t LCDHEIGHT = 240;
   static const uint8_t REFRESHDELAY = 13;
 #endif
-
-  // BLEKB
-  // static constexpr const char *SERVICE_UUID =
-  //     "695ba701-a48c-43f6-9028-3c885771f19f";
-  // static constexpr const char *CHARACTERISTIC_UUID =
-  //     "3b05e9bf-086f-4b56-9c37-7b7eeb30b28b";
 
   // resolution of system timer (throttling 6502 CPU, get BLE KB codes)
   static const uint16_t INTERRUPTSYSTEMRESOLUTION = 1000;

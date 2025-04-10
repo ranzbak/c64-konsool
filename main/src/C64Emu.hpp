@@ -20,6 +20,7 @@
 #include "KonsoolKB.hpp"
 #include "esp_attr.h"
 #include "freertos/projdefs.h"
+#include "menuoverlay/MenuController.hpp"
 #include "portmacro.h"
 extern "C" {
 #include "esp_timer.h"
@@ -95,12 +96,13 @@ class C64Emu {
     adc_cali_handle_t         adc_cali_handle;
 
    public:
-    CPUC64       cpu;
+    CPUC64         cpu;
     // BLEKB blekb;
-    KonsoolKB    konsoolkb;
-    ExternalCmds externalCmds;
-    bool         perf           = false;
-    uint32_t     batteryVoltage = 0;
+    KonsoolKB      konsoolkb;
+    MenuController menuController;
+    ExternalCmds   externalCmds;
+    bool           perf           = false;
+    uint32_t       batteryVoltage = 0;
 
     void powerOff();
     void setup();

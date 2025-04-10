@@ -29,6 +29,7 @@ private:
   uint8_t startbyte;
   ConfigDisplay configDisplay;
 
+
   inline void drawByteStdData(uint8_t data, uint16_t &idx, uint16_t &xp,
                               uint16_t col, uint16_t bgcol, uint8_t dx)
       __attribute__((always_inline));
@@ -108,6 +109,7 @@ public:
   uint16_t rasterline;
   uint8_t syncd020;
   bool screenblank;
+  uint16_t *bordercolors;
 
   VIC();
   void initVarsAndRegs();
@@ -116,5 +118,6 @@ public:
   void refresh(bool refreshframecolor);
   uint8_t nextRasterline();
   void drawRasterline();
+  DisplayDriver *getDriver() { return configDisplay.displayDriver; }
 };
 #endif // VIC_H

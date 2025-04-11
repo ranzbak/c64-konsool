@@ -1,10 +1,13 @@
 #include "SDCard.hpp"
-#include "Config.hpp"
 #include <dirent.h>
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <sys/unistd.h>
+#include <cstdint>
 #include <cstring>
+#include <string>
+#include <vector>
+#include "Config.hpp"
 #include "driver/sdmmc_default_configs.h"
 #include "driver/sdmmc_host.h"
 #include "driver/sdspi_host.h"
@@ -34,16 +37,16 @@ SDCard::~SDCard() {
 
 bool SDCard::init() {
     esp_err_t ret;
-
-#if defined(USE_SDCARD)
     if (initialized) {
         return true;
     }
 
+#if defined(USE_SDCARD)
+
     // ESP_LOGI(TAG, "Initialize SDCard power");
 
     sd_pwr_ctrl_ldo_config_t ldo_config = {
-        .ldo_chan_id = LDO_UNIT_4, // SDCard powered by VO4
+        .ldo_chan_id = LDO_UNIT_4,  // SDCard powered by VO4
     };
     sd_pwr_ctrl_handle_t pwr_ctrl_handle = NULL;
 
@@ -58,13 +61,13 @@ bool SDCard::init() {
 
     ESP_LOGI(TAG, "Setup sdio slot");
 
-    slot_config.clk = static_cast<gpio_num_t>(BSP_SDCARD_CLK);
-    slot_config.cmd = static_cast<gpio_num_t>(BSP_SDCARD_CMD);
-    slot_config.d0  = static_cast<gpio_num_t>(BSP_SDCARD_D0);
-    slot_config.d1  = static_cast<gpio_num_t>(BSP_SDCARD_D1);
-    slot_config.d2  = static_cast<gpio_num_t>(BSP_SDCARD_D2);
-    slot_config.d3  = static_cast<gpio_num_t>(BSP_SDCARD_D3);
-    slot_config.width = 4;
+    slot_config.clk    = static_cast<gpio_num_t>(BSP_SDCARD_CLK);
+    slot_config.cmd    = static_cast<gpio_num_t>(BSP_SDCARD_CMD);
+    slot_config.d0     = static_cast<gpio_num_t>(BSP_SDCARD_D0);
+    slot_config.d1     = static_cast<gpio_num_t>(BSP_SDCARD_D1);
+    slot_config.d2     = static_cast<gpio_num_t>(BSP_SDCARD_D2);
+    slot_config.d3     = static_cast<gpio_num_t>(BSP_SDCARD_D3);
+    slot_config.width  = 4;
     slot_config.flags |= SDMMC_SLOT_FLAG_INTERNAL_PULLUP;
 
     ESP_LOGI(TAG, "Mounting SDcard");
@@ -78,13 +81,7 @@ bool SDCard::init() {
 
     const char mount_point[] = SD_CARD_MOUNT_POINT;
 
-    ret = esp_vfs_fat_sdmmc_mount(
-        mount_point,
-        &host,
-        &slot_config,
-        &mount_config,
-        &mount_card
-    );
+    ret = esp_vfs_fat_sdmmc_mount(mount_point, &host, &slot_config, &mount_config, &mount_card);
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "Failed to mount SD card: %s", esp_err_to_name(ret));
         return false;
@@ -102,35 +99,35 @@ bool SDCard::init() {
 #endif
 }
 
-void getPath(char *path, uint8_t *ram) {
-    uint8_t cury = ram[0xd6];
-    uint8_t curx = ram[0xd3];
-    uint8_t *cursorpos = ram + 0x0400 + cury * 40 + curx;
-    cursorpos--; // char may be 160
+void getPath(char* path, uint8_t* ram) {
+    uint8_t  cury      = ram[0xd6];
+    uint8_t  curx      = ram[0xd3];
+    uint8_t* cursorpos = ram + 0x0400 + cury * 40 + curx;
+    cursorpos--;  // char may be 160
     while (*cursorpos == 32) {
-      cursorpos--;
+        cursorpos--;
     }
     while ((*cursorpos != 32) && (cursorpos >= ram + 0x0400)) {
-      cursorpos--;
+        cursorpos--;
     }
     cursorpos++;
-    path[0] = '/';
+    path[0]   = '/';
     uint8_t i = 1;
     uint8_t p;
     while (((p = *cursorpos++) != 32) && (p != 160) && (i < 17)) {
-      if ((p >= 1) && (p <= 26)) {
-        path[i] = p + 96;
-      } else if ((p >= 33) && (p <= 63)) {
-        path[i] = p;
-      }
-      i++;
+        if ((p >= 1) && (p <= 26)) {
+            path[i] = p + 96;
+        } else if ((p >= 33) && (p <= 63)) {
+            path[i] = p;
+        }
+        i++;
     }
     path[i++] = '.';
     path[i++] = 'p';
     path[i++] = 'r';
     path[i++] = 'g';
-    path[i] = '\0';
-  }
+    path[i]   = '\0';
+}
 
 uint16_t SDCard::load(const char* path, uint8_t* ram, size_t len) {
     char full_path[128];
@@ -149,7 +146,6 @@ uint16_t SDCard::load(const char* path, uint8_t* ram, size_t len) {
     close(fd);
     return pos;
 }
-
 
 uint16_t SDCard::load_auto(const char* path, uint8_t* ram, size_t len) {
     char file_path[64] = {0};
@@ -174,8 +170,6 @@ uint16_t SDCard::load_auto(const char* path, uint8_t* ram, size_t len) {
     return pos;
 }
 
-
-
 bool SDCard::save(const char* path, const uint8_t* ram, size_t len) {
     if (!initialized) return false;
     getPath(const_cast<char*>(path), const_cast<uint8_t*>(ram));
@@ -190,6 +184,53 @@ bool SDCard::save(const char* path, const uint8_t* ram, size_t len) {
     write(fd, &ram[startaddr], endaddr - startaddr);
     close(fd);
     return true;
+}
+
+std::vector<std::string> SDCard::listPagedEntries(const char* path, size_t page, size_t pageSize) {
+    std::vector<std::string> result;
+    DIR*                     dir = nullptr;
+    struct dirent*           ent;
+
+    if (!initialized) return result;
+
+    // calculate the start offset
+    size_t startOffset = page * pageSize;
+
+    ESP_LOGI(TAG, "list paged entries %s, page %zu, pageSize %zu", path, page, pageSize);
+
+    dir = opendir(path);
+    if (!dir) {
+        ESP_LOGI(TAG, "cannot open root dir");
+        closedir(dir);
+        return result;
+    }
+
+    // Move the directory to the start offset
+    for (uint16_t count = 0; count < startOffset; count++) {
+        if (readdir(dir) == nullptr) {
+            closedir(dir);
+            return result;
+        }
+    }
+
+    // Read the next page of entries until either the end of the
+    // directory or the desired page size is reached
+    uint32_t count = 0;
+    while (count < pageSize) {
+        ent = readdir(dir);
+        if (ent == nullptr) {
+            break;
+        }
+        // if the name > 4 characters and ends with.prg, cut off '.prg' and add it to the result
+        std::string name = ent->d_name;
+        if (name.length() > 4 && name.substr(name.length() - 4) == ".prg") {
+            name = name.substr(0, name.length() - 4);
+            result.push_back(name);
+        }
+        count++;
+    }
+    closedir(dir);
+    return result;
 }
 
 bool SDCard::listNextEntry(uint8_t* nextentry, size_t entrySize, bool start) {
@@ -213,19 +254,14 @@ bool SDCard::listNextEntry(uint8_t* nextentry, size_t entrySize, bool start) {
     while ((ent = readdir(dir)) != nullptr) {
         const char* name = ent->d_name;
         size_t      len  = strlen(name);
+        ESP_LOGI(TAG, "found file: %s", name);
         if (len > 4 && strcmp(name + len - 4, ".prg") == 0) {
-            char fname[17] = {};
-            size_t copy_len = len - 4;
+            char   fname[17] = {};
+            size_t copy_len  = len - 4;
             if (copy_len >= sizeof(fname)) copy_len = sizeof(fname) - 1;
-            memcpy(fname, name, copy_len);
-            for (uint8_t i = 0; i < 16; i++) {
-                uint8_t p = fname[i];
-                if ((p >= 97) && (p <= 122))
-                    nextentry[i] = p - 32;
-                else
-                    nextentry[i] = p;
-            }
-            nextentry[16] = '\0';
+            memcpy(nextentry, name, copy_len);
+            nextentry[copy_len] = '\0';
+            nextentry[16]       = '\0';
             return true;
         }
     }

@@ -16,31 +16,30 @@
  http://www.gnu.org/licenses/.
 */
 
-
 #include <sys/stat.h>
-#include "driver/sdmmc_default_configs.h"
-#include "esp_vfs_fat.h"
-#include "sdmmc_cmd.h"
-#include "driver/sdmmc_host.h"
 #include <cstdint>
+#include <string>
+#include <vector>
+#include "driver/sdmmc_default_configs.h"
+#include "driver/sdmmc_host.h"
 
 class SDCard {
-  private:
-      bool initialized;
-      sdmmc_slot_config_t slot_config = SDMMC_SLOT_CONFIG_DEFAULT();
-      sdmmc_host_t        host        = SDMMC_HOST_DEFAULT();
-      sdmmc_card_t        card;
-      sdmmc_card_t*       mount_card;
-  
-  public:
-      SDCard();
-      ~SDCard();
-  
-      bool init();
-    //   uint16_t load(const char *path, uint8_t *ram, size_t len);
-      uint16_t load(const char *path, uint8_t *ram, size_t len = 0);
-      uint16_t load_auto(const char *path, uint8_t *ram, size_t len = 0);
-      bool save(const char *path, const uint8_t *ram, size_t len = 0);
-      bool listNextEntry(uint8_t *nextEntry, size_t entrySize, bool start);
-  };
+   private:
+    bool                initialized;
+    sdmmc_slot_config_t slot_config = SDMMC_SLOT_CONFIG_DEFAULT();
+    sdmmc_host_t        host        = SDMMC_HOST_DEFAULT();
+    sdmmc_card_t        card;
+    sdmmc_card_t*       mount_card;
 
+   public:
+    SDCard();
+    ~SDCard();
+
+    bool                     init();
+    //   uint16_t load(const char *path, uint8_t *ram, size_t len);
+    uint16_t                 load(const char* path, uint8_t* ram, size_t len = 0);
+    uint16_t                 load_auto(const char* path, uint8_t* ram, size_t len = 0);
+    bool                     save(const char* path, const uint8_t* ram, size_t len = 0);
+    std::vector<std::string> listPagedEntries(const char* path, size_t page, size_t pageSize);
+    bool                     listNextEntry(uint8_t* nextEntry, size_t entrySize, bool start);
+};

@@ -24,6 +24,7 @@
 #include "ExternalCmds.hpp"
 #include "driver/timer_types_legacy.h"
 #include "esp_check.h"
+#include "esp_err.h"
 #include "esp_log_level.h"
 #include "esp_rom_gpio.h"
 #include "freertos/idf_additions.h"
@@ -232,8 +233,16 @@ void C64Emu::setup() {
     // allocate ram
     ram = new uint8_t[1 << 16];
 
+    // Init I2S
+    ESP_ERROR_CHECK(i2s.init());
+
+    // init SID
+    sid.init(ram, [](int16_t *buf, size_t num) {
+        instance->i2s.write(buf, num);
+    } );
+
     // init VIC
-    vic.init(ram, charset_rom);
+    vic.init(ram, charset_rom, &sid);
 
     // init ble keyboard
     konsoolkb.init(this);

@@ -19,6 +19,10 @@ bool MenuBaseClass::init() {
     return true;
 };
 
+void MenuBaseClass::update() {
+    // Implement logic to update the menu items based on user input
+};
+
 std::string MenuBaseClass::getTitle() const {
     return title;
 };
@@ -31,20 +35,26 @@ std::vector<MenuItem> MenuBaseClass::getItems() const {
     return items;
 };
 
+void MenuBaseClass::navigateBegin() {
+    selectedItemIndex = 0;
+}
 
 void MenuBaseClass::navigateUp() {
     if (selectedItemIndex > 0) {
         selectedItemIndex--;
+    } else {
+        selectedItemIndex = items.size() - 1;
     }
-    menuController->render();
+    // menuController->render();
 }
-
 
 void MenuBaseClass::navigateDown() {
     if (selectedItemIndex < items.size() - 1) {
         selectedItemIndex++;
+    } else {
+        selectedItemIndex = 0;
     }
-    menuController->render();
+    // menuController->render();
 }
 
 size_t MenuBaseClass::getSelectedItemIndex() const {
@@ -70,7 +80,7 @@ void MenuBaseClass::activateItem(uint16_t id) {
             // Open submenu
             ESP_LOGI(TAG, "Opening submenu: %s", item.title.c_str());
             menuController->setCurrentMenu(item.submenu);
-            menuController->render();
+            // menuController->render();
             break;
         case MenuItemType::TOGGLE:
             item.checked = !item.checked;

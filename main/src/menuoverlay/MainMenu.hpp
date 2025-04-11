@@ -15,7 +15,8 @@ class MainMenu : public MenuBaseClass {
     public:
     MainMenu(std::string title, MenuBaseClass* previousMenu, MenuController* menuController);
     ~MainMenu();
-    bool init();
+    bool init() override;
+    void update() override {};
     void displayMenu() const;
     void handleInput(char input);
 };

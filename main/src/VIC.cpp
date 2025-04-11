@@ -20,6 +20,7 @@
 #include "Config.hpp"
 #include "DisplayDriver.hpp"
 #include "esp_heap_caps.h"
+#include "sid/sid.hpp"
 
 static const uint16_t* tftColorFromC64ColorArr;
 
@@ -575,13 +576,14 @@ void VIC::initLCDController() {
     configDisplay.displayDriver->init();
 }
 
-void VIC::init(uint8_t* ram, uint8_t* charrom) {
+void VIC::init(uint8_t* ram, uint8_t* charrom, SID *sid) {
     if (bitmap != nullptr) {
         // init method must be called only once
         return;
     }
     this->ram   = ram;
     this->chrom = charrom;
+    this->sid   = sid;
 
     // allocate bitmap memory to be transfered to LCD
     bitmap       = (uint16_t*)heap_caps_calloc(320 * (200 + 8), sizeof(uint16_t), MALLOC_CAP_DMA | MALLOC_CAP_SPIRAM);
@@ -667,5 +669,7 @@ void VIC::drawRasterline() {
         }
         drawSprites(line + deltay - 3);
         bordercolors[dline] = tftColorFromC64ColorArr[vicreg[0x20] & 15];
+
+        // Update SID chip state
     }
 }

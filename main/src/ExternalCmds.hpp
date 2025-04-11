@@ -76,7 +76,6 @@ class ExternalCmds {
    private:
     C64Emu*  c64emu;
     uint8_t* ram;
-    SDCard   sdcard;
     bool     sendrawkeycodes;
     uint16_t actaddrreceivecmd;
 
@@ -90,6 +89,7 @@ class ExternalCmds {
     void setType5Notification(uint8_t batteryVolLow, uint8_t batteryVolHi);
 
    public:
+    SDCard   sdcard;
     // TODO: Doesn't work need to look at later
     enum class ExtCmd;
 
@@ -103,5 +103,6 @@ class ExternalCmds {
 
     void    init(uint8_t* ram, C64Emu* c64emu);
     bool    loadPrg(const char* filename);
+    void    reset();
     uint8_t executeExternalCmd(uint8_t* buffer);
 };

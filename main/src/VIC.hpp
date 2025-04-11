@@ -1,3 +1,4 @@
+#pragma once
 /*
  Copyright (C) 2024 retroelec <retroelec42@gmail.com>
 
@@ -14,15 +15,14 @@
  For the complete text of the GNU General Public License see
  http://www.gnu.org/licenses/.
 */
-#ifndef VIC_H
-#define VIC_H
-
 #include "ConfigDisplay.h"
 #include <cstdint>
+#include "sid/sid.hpp"
 
 class VIC {
 private:
   uint8_t *ram;
+  SID *sid;
   uint16_t *bitmap;
   uint8_t spritespritecoll[320];
   bool spritedatacoll[320];
@@ -114,10 +114,9 @@ public:
   VIC();
   void initVarsAndRegs();
   void initLCDController();
-  void init(uint8_t *ram, uint8_t *charrom);
+  void init(uint8_t *ram, uint8_t *charrom, SID *sid);
   void refresh(bool refreshframecolor);
   uint8_t nextRasterline();
   void drawRasterline();
   DisplayDriver *getDriver() { return configDisplay.displayDriver; }
 };
-#endif // VIC_H

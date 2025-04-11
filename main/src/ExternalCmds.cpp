@@ -153,6 +153,17 @@ bool ExternalCmds::loadPrg(const char* filename) {
     return 0;
 }
 
+void ExternalCmds::reset() {
+    if (c64emu != nullptr) {
+            c64emu->cpu.cpuhalted = true;
+            c64emu->cpu.initMemAndRegs();
+            c64emu->cpu.vic->initVarsAndRegs();
+            c64emu->cpu.cia1.init(true);
+            c64emu->cpu.cia2.init(false);
+            c64emu->cpu.cpuhalted = false;
+    }
+}
+
 uint8_t ExternalCmds::executeExternalCmd(uint8_t* buffer) {
     ExtCmd cmd = static_cast<ExtCmd>(buffer[0]);
     switch (cmd) {

@@ -24,6 +24,8 @@ class MenuBaseClass {
     // Override to implement specific menu behavior
     virtual bool init();
 
+    virtual void update();
+
     std::string getTitle() const;
 
     // Menu structure
@@ -31,6 +33,7 @@ class MenuBaseClass {
     std::vector<MenuItem> getItems() const;
 
     // Navigation
+    void navigateBegin();
     void navigateUp();
     void navigateDown();
     size_t getSelectedItemIndex() const;

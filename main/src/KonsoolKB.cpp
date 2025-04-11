@@ -86,8 +86,8 @@ void KonsoolKB::handleKeyPress() {
         keypresseddown = NUMOFCYCLES_KEYPRESSEDDOWN;
         switch (event.type) {
             case INPUT_EVENT_TYPE_KEYBOARD: {
-                ESP_LOGI(TAG, "Keyboard event %c (%02x) %s", event.args_keyboard.ascii,
-                         (uint8_t)event.args_keyboard.ascii, event.args_keyboard.utf8);
+                // ESP_LOGI(TAG, "Keyboard event %c (%02x) %s", event.args_keyboard.ascii,
+                //  (uint8_t)event.args_keyboard.ascii, event.args_keyboard.utf8);
                 this->keypresseddown = true;
                 this->key_hold       = true;
 
@@ -320,11 +320,19 @@ void KonsoolKB::handleKeyPress() {
             case INPUT_EVENT_TYPE_NAVIGATION: {
                 konsoleled->set_led_color(0, 0xffff0000);
                 konsoleled->show_led_colors();
+                if (event.args_navigation.state == false) {
+                    break;
+                }
 
                 switch (event.args_navigation.key) {
                     case BSP_INPUT_NAVIGATION_KEY_BACKSPACE:
                         sentdc00 = 0xfe;
                         sentdc01 = 0xfe;
+                        break;
+                    case BSP_INPUT_NAVIGATION_KEY_ESC:
+                        if (menuController->getVisible()) {
+                            menuController->handleInput(MENU_OVERLAY_INPUT_TYPE_LAST);
+                        }
                         break;
                     case BSP_INPUT_NAVIGATION_KEY_RETURN:
                         if (menuController->getVisible()) {
@@ -360,10 +368,33 @@ void KonsoolKB::handleKeyPress() {
                         sentdc00 = 0xfe;
                         sentdc01 = 0xfb;
                         break;
+                    case BSP_INPUT_NAVIGATION_KEY_F1:
+                        sentdc00 = 0xfe;
+                        sentdc01 = 0xef;
+                        break;
+                    case BSP_INPUT_NAVIGATION_KEY_F2:
+                        sentdc00       = 0xfe;
+                        sentdc01       = 0xef;
+                        shiftctrlcode |= 1;
+                        break;
+                    case BSP_INPUT_NAVIGATION_KEY_F3:
+                        sentdc00 = 0xfe;
+                        sentdc01 = 0xdf;
+                        break;
+                    case BSP_INPUT_NAVIGATION_KEY_F4:
+                        sentdc00       = 0xfe;
+                        sentdc01       = 0xdf;
+                        shiftctrlcode |= 1;
+                        break;
                     case BSP_INPUT_NAVIGATION_KEY_F5:
                         sentdc00 = 0xfe;
                         sentdc01 = 0xbf;
                         break;
+                    // case BSP_INPUT_NAVIGATION_KEY_F6:
+                    //     sentdc00 = 0xfe;
+                    //     sentdc01 = 0xbf;
+                    //     shiftctrlcode |= 1;
+                    //     break;
                     case BSP_INPUT_NAVIGATION_KEY_F6: {
                         if (event.args_navigation.state == true) {
                             menuController->toggle();

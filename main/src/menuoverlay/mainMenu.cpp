@@ -12,15 +12,9 @@ MainMenu::MainMenu(std::string title, MenuBaseClass* previousMenu, MenuControlle
 MainMenu::~MainMenu() {};
 
 void MainMenu::resetC64(MenuItem* item) {
-    if (menuController != nullptr) {
-        // Reset C64 emulator
-        c64emu->cpu.cpuhalted = true;
-        c64emu->cpu.initMemAndRegs();
-        c64emu->cpu.vic->initVarsAndRegs();
-        c64emu->cpu.cia1.init(true);
-        c64emu->cpu.cia2.init(false);
-        c64emu->cpu.cpuhalted = false;
-    }
+    ExternalCmds* ext = &c64emu->externalCmds;
+
+    ext->reset();
 }
 
 bool MainMenu::init() {

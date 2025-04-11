@@ -4,6 +4,7 @@
 #include "C64Emu.hpp"
 #include "MainMenu.hpp"
 #include "esp_log.h"
+#include "menuoverlay/MenuTypes.hpp"
 #include "pax_gfx.h"
 #include "soc/clk_tree_defs.h"
 
@@ -33,17 +34,22 @@ void MenuController::init(C64Emu* c64emu) {
 }
 
 void MenuController::render() {
+    // Allow the current menu to update itself
+    currentMenu->update();
+
+    // Clear the screen
     pax_background(fb, 0xff000000);
+    // Draw the menu items
     pax_draw_rect(fb, 0xffffffff, 0, 0, 640, 40);
     pax_draw_text(fb, 0xff000000, pax_font_sky_mono, 16, 10, 10, currentMenu->getTitle().c_str());
 
     const auto& items = currentMenu->getItems();
-    ESP_LOGI(TAG, "Menu items: %d", items.size());
+    // ESP_LOGI(TAG, "Menu items: %d", items.size());
     size_t i = 0;
     for (const auto& item : items) {
         uint32_t    color = currentMenu->getSelectedItemIndex() == i ? 0xff0000ff : 0xffffffff;
         std::string title = ("-- " + item.title + " --");
-        ESP_LOGI(TAG, "Menu Item %d: %s", i, title.c_str());
+        // ESP_LOGI(TAG, "Menu Item %d: %s", i, title.c_str());
         pax_draw_text(fb, color, pax_font_sky_mono, 16, 30, 60 + i * 20, title.c_str());
         ++i;
     }
@@ -77,9 +83,14 @@ void MenuController::handleInput(menu_overlay_input_type_t input) {
         case MENU_OVERLAY_INPUT_TYPE_SELECT:
             currentMenu->activateItem(currentMenu->getSelectedItemIndex());
             break;
+        case MENU_OVERLAY_INPUT_TYPE_LAST:
+            if (currentMenu->getParentMenu() != nullptr) {
+                currentMenu = currentMenu->getParentMenu();
+            }
         default:
             break;
     }
+    render();
 }
 
 // Implement other methods defined in MenuController.hpp

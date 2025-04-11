@@ -16,6 +16,8 @@ idf_component_register(
 		"src/menuoverlay/MenuBaseClass.cpp"
 		"src/menuoverlay/mainMenu.cpp"
 		"src/menuoverlay/LoadMenu.cpp"
+		"src/sid/sid.cpp"
+		"src/sid/i2s.cpp"
 	PRIV_REQUIRES
 		esp_lcd
 		esp_adc

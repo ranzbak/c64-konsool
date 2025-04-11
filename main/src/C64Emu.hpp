@@ -31,6 +31,8 @@ extern "C" {
 #include "ExternalCmds.hpp"
 #include "freertos/idf_additions.h"
 #include "freertos/semphr.h"
+#include "sid/sid.hpp"
+#include "sid/i2s.hpp"
 
 class C64Emu {
    private:
@@ -71,6 +73,8 @@ class C64Emu {
     uint8_t*    ram;
     ConfigBoard configBoard;
     VIC         vic;
+    SID         sid;
+    I2S         i2s;
 
     uint16_t checkForKeyboardCnt        = 0;
     uint8_t  throttlingCnt              = 0;

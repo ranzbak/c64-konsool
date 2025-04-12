@@ -15,13 +15,16 @@
  http://www.gnu.org/licenses/.
 */
 #include "C64Emu.hpp"
+
 #include <driver/gpio.h>
 #include <string.h>
+
 #include <cstdint>
+
 #include "Config.hpp"
-#include "HardwareInitializationException.h"
-#include "VIC.hpp"
 #include "ExternalCmds.hpp"
+// #include "HardwareInitializationException.h"
+#include "VIC.hpp"
 #include "driver/timer_types_legacy.h"
 #include "esp_check.h"
 #include "esp_err.h"
@@ -31,6 +34,7 @@
 #include "hal/gpio_types.h"
 #include "portmacro.h"
 #include "roms/charset.h"
+#include "sid/sid.hpp"
 extern "C" {
 #include <esp_adc/adc_cali.h>
 #include <esp_adc/adc_cali_scheme.h>
@@ -41,7 +45,7 @@ extern "C" {
 
 static const char* TAG = "C64Emu";
 
-SemaphoreHandle_t  C64Emu::lcdRefreshSem;
+SemaphoreHandle_t C64Emu::lcdRefreshSem;
 
 C64Emu* C64Emu::instance = nullptr;
 
@@ -87,7 +91,8 @@ C64Emu* C64Emu::instance = nullptr;
 //   numofburnedcyclespersecond = 0;
 // }
 
-bool C64Emu::updateTOD(CIA& cia) {
+bool C64Emu::updateTOD(CIA& cia)
+{
     uint8_t dc08 = cia.latchrundc08.load(std::memory_order_acquire);
     dc08++;
     if (dc08 > 9) {
@@ -151,7 +156,8 @@ bool C64Emu::updateTOD(CIA& cia) {
     return false;
 }
 
-void IRAM_ATTR C64Emu::interruptTODFunc() {
+void IRAM_ATTR C64Emu::interruptTODFunc()
+{
     if (cpu.cia1.isTODRunning.load(std::memory_order_acquire)) {
         if (updateTOD(cpu.cia1)) {
             cpu.cia1.isAlarm.store(true, std::memory_order_release);
@@ -164,7 +170,8 @@ void IRAM_ATTR C64Emu::interruptTODFunc() {
     }
 }
 
-void C64Emu::handleKeyboardFunc() {
+void C64Emu::handleKeyboardFunc()
+{
     // check for keyboard inputs ca. each 8 ms
     checkForKeyboardCnt++;
     if (checkForKeyboardCnt == 8) {
@@ -173,7 +180,8 @@ void C64Emu::handleKeyboardFunc() {
     }
 }
 
-void IRAM_ATTR C64Emu::interruptSystemFunc() {
+void IRAM_ATTR C64Emu::interruptSystemFunc()
+{
     // throttle 6502 CPU
     throttlingCnt++;
     uint16_t measuredcyclestmp = cpu.measuredcycles.load(std::memory_order_acquire);
@@ -192,7 +200,8 @@ void IRAM_ATTR C64Emu::interruptSystemFunc() {
     }
 }
 
-void C64Emu::cpuCode(void* parameter) {
+void C64Emu::cpuCode(void* parameter)
+{
     ESP_LOGI(TAG, "cpuTask running on core %d", xPortGetCoreID());
 
     // init LCD driver
@@ -213,7 +222,8 @@ void C64Emu::cpuCode(void* parameter) {
     // cpu runs forever -> no vTaskDelete(NULL);
 }
 
-void C64Emu::powerOff() {
+void C64Emu::powerOff()
+{
 #ifdef BOARD_T_HMI
     gpio_config_t io_conf;
     io_conf.intr_type    = GPIO_INTR_DISABLE;
@@ -226,7 +236,8 @@ void C64Emu::powerOff() {
 #endif
 }
 
-void C64Emu::setup() {
+void C64Emu::setup()
+{
     instance = this;
     ESP_LOGI(TAG, "Initializing C64 emulator");
 
@@ -236,11 +247,6 @@ void C64Emu::setup() {
     // Init I2S
     ESP_ERROR_CHECK(i2s.init());
 
-    // init SID
-    sid.init(ram, [](int16_t *buf, size_t num) {
-        instance->i2s.write(buf, num);
-    } );
-
     // init VIC
     vic.init(ram, charset_rom, &sid);
 
@@ -249,6 +255,9 @@ void C64Emu::setup() {
 
     // init CPU
     cpu.init(ram, charset_rom, &vic, this);
+
+    // init SID
+    sid.init(cpu.getSidRegs(), [](int16_t* buf, size_t num) { instance->i2s.write(buf, num); }, SIDMODEL_8580);
 
     // init Menu system
     menuController.init(this);
@@ -267,15 +276,7 @@ void C64Emu::setup() {
                             1);              // Core where the task should run
 
     // Interrupt handler for keyboard IO (keyboard)
-    xTaskCreatePinnedToCore(
-        handleKeyboardFuncWrapper, 
-        "interruptSystem", 
-        4096, 
-        NULL, 
-        0, 
-        &interruptTask, 
-        0
-    );
+    xTaskCreatePinnedToCore(handleKeyboardFuncWrapper, "interruptSystem", 4096, NULL, 0, &interruptTask, 0);
 
     // interrupt each 1000 us to get keyboard codes and throttle 6502 CPU
     // TODO add keyboard handling back
@@ -286,13 +287,10 @@ void C64Emu::setup() {
     ESP_LOGI(TAG, "Setup Inturrupt System timer.");
 
     const esp_timer_create_args_t timer_args = {
-        .callback = &interruptSystemFuncWrapper,
-        .arg = NULL,
-        .name = "interrupt_timer"
-    };
+        .callback = &interruptSystemFuncWrapper, .arg = NULL, .name = "interrupt_timer"};
 
     esp_timer_create(&timer_args, &interrupt_timer);
-    esp_timer_start_periodic(interrupt_timer, Config::INTERRUPTSYSTEMRESOLUTION); // in microseconds
+    esp_timer_start_periodic(interrupt_timer, Config::INTERRUPTSYSTEMRESOLUTION);  // in microseconds
 
     // profiling + battery check: interrupt each second
     // TODO: Implement battery check using BSP
@@ -302,6 +300,7 @@ void C64Emu::setup() {
     // timerAlarm(interruptProfilingBatteryCheck, 1000000, true, 0);
 }
 
-void C64Emu::loop() {
+void C64Emu::loop()
+{
     vic.refresh(true);
 }

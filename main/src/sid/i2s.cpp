@@ -1,27 +1,44 @@
+#include "i2s.hpp"
+#include <cstdint>
 #include "driver/i2s_std.h"
 #include "driver/i2s_types.h"
 #include "esp_err.h"
 #include "esp_log.h"
 #include "hal/i2s_types.h"
-#include "i2s.hpp"
+#include "sid/sid.hpp"
+
+extern "C" {
+#include "bsp/audio.h"
+}
 
 static const char* TAG = "I2S";
 
 esp_err_t I2S::init() {
+    // TODO: Move to a better place.
+    ESP_LOGI(TAG, "Initializing BSP audio interface");
+    esp_err_t res = bsp_audio_initialize();
+    if (res != ESP_OK) {
+        ESP_LOGE(TAG, "Initializing audio failed");
+        return res;
+    }
+
+    bsp_audio_set_volume(80);
+    ESP_LOGI(TAG, "Enable aplifier for audio output");
+    bsp_audio_set_amplifier(true);
 
     ESP_LOGI(TAG, "Initializing I2S audio interface");
     // I2S audio
-    chan_cfg = (i2s_chan_config_t) I2S_CHANNEL_DEFAULT_CONFIG(I2S_NUM_0, I2S_ROLE_MASTER);
+    chan_cfg = (i2s_chan_config_t)I2S_CHANNEL_DEFAULT_CONFIG(I2S_NUM_0, I2S_ROLE_MASTER);
 
-    esp_err_t res = i2s_new_channel(&chan_cfg, &i2s_handle, NULL);
+    res = i2s_new_channel(&chan_cfg, &i2s_handle, NULL);
     if (res != ESP_OK) {
         ESP_LOGE(TAG, "Initializing I2S channel failed");
         return res;
     }
 
-    i2s_std_config_t i2s_config = {
-        .clk_cfg  = I2S_STD_CLK_DEFAULT_CONFIG(44100),
-        .slot_cfg = I2S_STD_MSB_SLOT_DEFAULT_CONFIG(I2S_DATA_BIT_WIDTH_16BIT, I2S_SLOT_MODE_MONO),
+    i2s_config = {
+        .clk_cfg  = I2S_STD_CLK_DEFAULT_CONFIG((uint32_t)DEFAULT_SAMPLERATE),
+        .slot_cfg = I2S_STD_MSB_SLOT_DEFAULT_CONFIG(I2S_DATA_BIT_WIDTH_16BIT, I2S_SLOT_MODE_STEREO),
         .gpio_cfg =
             {
                 .mclk = GPIO_NUM_30,
@@ -53,6 +70,28 @@ esp_err_t I2S::init() {
     return ESP_OK;
 }
 
+// 2 uint16_t -> 4 bytes union
+union Int16ToInt32 {
+    int32_t val;
+    struct {
+        int16_t l;
+        int16_t h;
+    };
+};
+
 esp_err_t I2S::write(const int16_t* data, size_t size) {
-    return i2s_channel_write(i2s_handle, data, size, NULL, 10);
+    size_t bytes_written;
+
+    for (size_t i = 0; i < size; i++) {
+        i2s_stereo_out[i * 2]       = data[i];
+        i2s_stereo_out[(i * 2) + 1] = data[i];
+    }
+
+    // size * 2 * 2 because of 2 channels (left and right) and 2 bytes per sample (int16_t)
+    i2s_channel_write(i2s_handle, (uint8_t const*)i2s_stereo_out, size * 2 * 2, &bytes_written, 12);
+    if (bytes_written < size * 2 * 2) {
+        ESP_LOGE(TAG, "Failed to write to I2S buffer %d != %d", bytes_written, size * 2 * 2);
+        return ESP_FAIL;
+    }
+    return ESP_OK;
 }

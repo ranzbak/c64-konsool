@@ -274,6 +274,7 @@ void CPUC64::setMem(uint16_t addr, uint8_t val) {
         // ** SID **
         else if (addr <= 0xd7ff) {
             uint8_t sididx = (addr - 0xd400) % 0x100;
+
             sidreg[sididx] = val;
         }
         // ** Colorram **
@@ -329,6 +330,10 @@ void CPUC64::setMem(uint16_t addr, uint8_t val) {
     else {
         ram[addr] = val;
     }
+}
+
+uint8_t *CPUC64::getSidRegs() {
+    return sidreg;
 }
 
 void CPUC64::cmd6502halt() {

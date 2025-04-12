@@ -18,10 +18,12 @@ typedef void (*AudioCallback)(int16_t *samples, size_t num_samples);
 #define MAX_DATA_LEN 65536
 #define LINES_PER_FRAME 312.5
 #define PAL_FRAMERATE                                                          \
-  50.06 // 50.0443427 //50.1245419 //(C64_PAL_CPUCLK/63/312.5), selected
+  50.1245419 // 50.0443427 //50.1245419 //(C64_PAL_CPUCLK/63/312.5), selected
+  // 50.06 // 50.0443427 //50.1245419 //(C64_PAL_CPUCLK/63/312.5), selected
         // carefully otherwise some ADSR-sensitive tunes may suffer more:
 #define DEFAULT_SAMPLERATE                                                     \
-  44100.0 //(Soldier of Fortune, 2nd Reality, Alliance, X-tra energy, Jackal,
+  16000.0 //(Soldier of Fortune, 2nd Reality, Alliance, X-tra energy, Jackal,
+  // 22050 //(Soldier of Fortune, 2nd Reality, Alliance, X-tra energy, Jackal,
           // Sanxion, Ultravox, Hard Track, Swing, Myth, LN3, etc.)
 #define CLOCK_RATIO_DEFAULT                                                    \
   C64_PAL_CPUCLK /                                                             \
@@ -40,9 +42,12 @@ typedef void (*AudioCallback)(int16_t *samples, size_t num_samples);
 #define FILTER_DISTORTION_6581                                                 \
   0.0016 // the bigger the value the more of resistance-modulation (filter
          // distortion) is applied for 6581 cutoff-control
-#define SAMPLES_PER_SCAN_LINE DEFAULT_SAMPLERATE / PAL_FRAMERATE / LINES_PER_FRAME
+// #define SAMPLES_PER_SCAN_LINE DEFAULT_SAMPLERATE / PAL_FRAMERATE / LINES_PER_FRAME
+// 63 Cycles per scanline (PAL)
+#define SAMPLES_PER_SCAN_LINE 63/(CLOCK_RATIO_DEFAULT)
 
-#define SAMPLE_BUFFER_SIZE 128
+#define SAMPLE_BUFFER_SIZE 192
+#define OUTPUT_SCALEDOWN SID_CHANNEL_AMOUNT * 16 + 26;
 
 // //raw output divided by this after multiplied by main volume, this also
 // compensates for filter-resonance emphasis to avoid distotion
@@ -97,7 +102,7 @@ private:
   uint8_t X = 0, Y = 0, IR = 0, ST = 0x00; // STATUS-flags: N V - B D I Z C
   float CPUtime = 0.0;
   unsigned char cycles = 0, finished = 0, dynCIA = 0;
-  const int OUTPUT_SCALEDOWN = SID_CHANNEL_AMOUNT * 16 + 26;
+
 
   uint32_t combinedWF(unsigned char num, unsigned char channel,
                       unsigned int *wfarray, int index,
@@ -114,7 +119,8 @@ private:
 
 public:
   SID();
+  void cSID_init(int samplerate);
   void init(uint8_t *memory,AudioCallback sample_out_callback=nullptr, int sid_model=DEFAULT_SIDMODEL);
   void raster_line();
-  int16_t cycle(unsigned char num, unsigned int baseaddr = 0xD400);
+  int32_t cycle(unsigned char num, unsigned int baseaddr = 0);
 };

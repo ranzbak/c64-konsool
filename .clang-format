@@ -1,5 +1,6 @@
 BasedOnStyle: Google
 CommentPragmas: '(@copydoc)'
+Language: Cpp
 
 # Pointers
 DerivePointerAlignment: false
@@ -44,7 +45,7 @@ BraceWrapping:
   AfterClass: false
   AfterControlStatement: false
   AfterEnum: false
-  AfterFunction: false
+  AfterFunction: true
   AfterNamespace: false
   AfterStruct: false
   AfterUnion: false

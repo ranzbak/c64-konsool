@@ -17,6 +17,7 @@
 #include "CPUC64.hpp"
 #include <esp_log.h>
 #include <esp_random.h>
+#include <cstdint>
 #include "C64Emu.hpp"
 #include "JoystickInitializationException.h"
 #include "esp_timer.h"

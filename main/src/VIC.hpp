@@ -90,7 +90,6 @@ private:
                           uint8_t *data, uint8_t color10, uint8_t color01,
                           uint8_t color11);
   void drawSprites(uint8_t line);
-  inline void checkFrameColor() __attribute__((always_inline));
 
 public:
   // profiling info

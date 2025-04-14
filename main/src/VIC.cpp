@@ -17,7 +17,7 @@
 #include "VIC.hpp"
 #include <cstdint>
 #include <cstring>
-#include "Config.hpp"
+// #include "Config.hpp"
 #include "DisplayDriver.hpp"
 #include "esp_heap_caps.h"
 #include "sid/sid.hpp"
@@ -621,17 +621,10 @@ void VIC::init(uint8_t* ram, uint8_t* charrom, SID* sid)
     initVarsAndRegs();
 }
 
-void VIC::checkFrameColor()
-{
-    configDisplay.displayDriver->drawFrame(bordercolors);
-}
-
 void VIC::refresh(bool refreshframecolor)
 {
     configDisplay.displayDriver->drawBitmap(bitmap);
-    if (refreshframecolor) {
-        checkFrameColor();
-    }
+    configDisplay.displayDriver->drawFrame(bordercolors);
     cntRefreshs++;
 }
 

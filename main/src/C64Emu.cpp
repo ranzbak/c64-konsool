@@ -15,18 +15,15 @@
  http://www.gnu.org/licenses/.
 */
 #include "C64Emu.hpp"
-
 #include <driver/gpio.h>
 #include <string.h>
-
 #include <cstdint>
-
 #include "Config.hpp"
 #include "ExternalCmds.hpp"
 // #include "HardwareInitializationException.h"
 #include "VIC.hpp"
 #include "driver/timer_types_legacy.h"
-#include "esp_check.h"
+// #include "esp_check.h"
 #include "esp_err.h"
 #include "esp_log_level.h"
 #include "esp_rom_gpio.h"
@@ -49,47 +46,47 @@ SemaphoreHandle_t C64Emu::lcdRefreshSem;
 
 C64Emu* C64Emu::instance = nullptr;
 
-// void IRAM_ATTR C64Emu::interruptProfilingBatteryCheckFunc() {
-//   // battery check
-//   cntSecondsForBatteryCheck++;
-//   if (cntSecondsForBatteryCheck >= 300) { // each 5 minutes
-//     // get battery voltage
-//     int raw_value = 0;
-//     adc_oneshot_read(adc1_handle, Config::BAT_ADC, &raw_value);
-//     int voltage = 0;
-//     if (adc_cali_handle) {
-//       adc_cali_raw_to_voltage(adc_cali_handle, raw_value, &voltage);
-//       voltage *= 2;
-//     } else {
-//       // fallback if calibration was not successful
-//       voltage = raw_value * 2;
-//     }
-//     batteryVoltage = voltage;
-//     ESP_LOGI(TAG, "adc raw: %d", raw_value);
-//     ESP_LOGI(TAG, "battery voltage: %d mV", batteryVoltage);
-//     // if battery voltage is too low, then power off device
-//     if (batteryVoltage < 3550) {
-//       powerOff();
-//     }
-//     // reset "timer"
-//     cntSecondsForBatteryCheck = 0;
-//   }
+void IRAM_ATTR C64Emu::interruptProfilingBatteryCheckFunc()
+{
+    // battery check
+    //   cntSecondsForBatteryCheck++;
+    //   if (cntSecondsForBatteryCheck >= 300) { // each 5 minutes
+    // get battery voltage
+    // int raw_value = 0;
+    // adc_oneshot_read(adc1_handle, Config::BAT_ADC, &raw_value);
+    // int voltage = 0;
+    // if (adc_cali_handle) {
+    //   adc_cali_raw_to_voltage(adc_cali_handle, raw_value, &voltage);
+    //   voltage *= 2;
+    // } else {
+    //   // fallback if calibration was not successful
+    //   voltage = raw_value * 2;
+    // }
+    // batteryVoltage = voltage;
+    // ESP_LOGI(TAG, "adc raw: %d", raw_value);
+    // ESP_LOGI(TAG, "battery voltage: %d mV", batteryVoltage);
+    // if battery voltage is too low, then power off device
+    // if (batteryVoltage < 3550) {
+    //   powerOff();
+    // }
+    // // reset "timer"
+    // cntSecondsForBatteryCheck = 0;
+    //   }
 
-//   // profiling (if activated)
-//   if (!perf) {
-//     return;
-//   }
-//   // frames per second
-//   if (vic.cntRefreshs != 0) {
-//     ESP_LOGI(TAG, "fps: %d", vic.cntRefreshs);
-//   }
-//   vic.cntRefreshs = 0;
-//   // number of cycles per second
-//   ESP_LOGI(TAG, "noc: %d, nbc: %d", cpu.numofcyclespersecond,
-//            numofburnedcyclespersecond);
-//   cpu.numofcyclespersecond = 0;
-//   numofburnedcyclespersecond = 0;
-// }
+    // profiling (if activated)
+    if (!perf) {
+        return;
+    }
+    // frames per second
+    if (vic.cntRefreshs != 0) {
+        ESP_LOGI(TAG, "fps: %d", vic.cntRefreshs);
+    }
+    vic.cntRefreshs            = 0;
+    // number of cycles per second
+    //   ESP_LOGI(TAG, "noc: %d, nbc: %d", cpu.numofcyclespersecond, numofburnedcyclespersecond);
+    cpu.numofcyclespersecond   = 0;
+    numofburnedcyclespersecond = 0;
+}
 
 bool C64Emu::updateTOD(CIA& cia)
 {
@@ -257,7 +254,11 @@ void C64Emu::setup()
     cpu.init(ram, charset_rom, &vic, this);
 
     // init SID
-    sid.init(cpu.getSidRegs(), [](int16_t* buf, size_t num) { instance->i2s.write(buf, num); }, SIDMODEL_8580);
+    sid.init(
+        cpu.getSidRegs(),
+        [](int16_t* buf, size_t num) { instance->i2s.write(buf, num); },
+        8580
+    );
 
     // init Menu system
     menuController.init(this);
@@ -291,6 +292,14 @@ void C64Emu::setup()
 
     esp_timer_create(&timer_args, &interrupt_timer);
     esp_timer_start_periodic(interrupt_timer, Config::INTERRUPTSYSTEMRESOLUTION);  // in microseconds
+
+    // TODO: Move to the menu structure
+    perf = true;
+
+    const esp_timer_create_args_t profiling_timer_args = {
+        .callback = &interruptProfilingBatteryCheckFuncWrapper, .arg = NULL, .name = "profiling_timer"};
+    esp_timer_create(&profiling_timer_args, &profiling_timer);
+    esp_timer_start_periodic(profiling_timer, 1000000);  // in microseconds
 
     // profiling + battery check: interrupt each second
     // TODO: Implement battery check using BSP

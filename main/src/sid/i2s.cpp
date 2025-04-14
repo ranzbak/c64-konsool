@@ -1,5 +1,6 @@
 #include "i2s.hpp"
 #include <cstdint>
+#include "driver/i2s_common.h"
 #include "driver/i2s_std.h"
 #include "driver/i2s_types.h"
 #include "esp_err.h"
@@ -13,7 +14,8 @@ extern "C" {
 
 static const char* TAG = "I2S";
 
-esp_err_t I2S::init() {
+esp_err_t I2S::init()
+{
     // TODO: Move to a better place.
     ESP_LOGI(TAG, "Initializing BSP audio interface");
     esp_err_t res = bsp_audio_initialize();
@@ -36,7 +38,8 @@ esp_err_t I2S::init() {
         return res;
     }
 
-    i2s_config = {
+
+    i2s_std_config_t i2s_config = {
         .clk_cfg  = I2S_STD_CLK_DEFAULT_CONFIG((uint32_t)DEFAULT_SAMPLERATE),
         .slot_cfg = I2S_STD_MSB_SLOT_DEFAULT_CONFIG(I2S_DATA_BIT_WIDTH_16BIT, I2S_SLOT_MODE_STEREO),
         .gpio_cfg =
@@ -70,25 +73,42 @@ esp_err_t I2S::init() {
     return ESP_OK;
 }
 
-// 2 uint16_t -> 4 bytes union
-union Int16ToInt32 {
-    int32_t val;
+// Union for left and right audio channel to uint32_t
+union MonoToStereo {
+    uint32_t val;
     struct {
         int16_t l;
-        int16_t h;
+        int16_t r;
     };
 };
 
-esp_err_t I2S::write(const int16_t* data, size_t size) {
-    size_t bytes_written;
+esp_err_t I2S::write(const int16_t* data, size_t size)
+{
+    size_t          bytes_written;
+    static uint32_t stereo_sample;
+    assert(sizeof(i2s_stereo_out) >= size * 2 * 2);  // 2 channels * 2 bytes per sample
+    static int16_t swapped;
 
     for (size_t i = 0; i < size; i++) {
-        i2s_stereo_out[i * 2]       = data[i];
-        i2s_stereo_out[(i * 2) + 1] = data[i];
+        // Convert the union to use int16_t to match the data type
+        // swapped = ((uint16_t(data[i]) << 8) & 0xFF00) | ((uint16_t(data[i]) >> 8) & 0x00FF);
+        swapped = data[i];
+
+        stereo_sample = MonoToStereo{
+            .l = swapped,
+            .r = swapped
+        }.val;
+
+        // if ((test_index & 1 << 4) == 0)
+        //     stereo_sample = MonoToStereo{.l = 30000, .r = 30000}.val;
+        // else
+        //     stereo_sample = MonoToStereo{.l = -30000, .r = -30000}.val;
+        // test_index++;
+        reinterpret_cast<uint32_t*>(i2s_stereo_out)[i] = stereo_sample;
     }
 
     // size * 2 * 2 because of 2 channels (left and right) and 2 bytes per sample (int16_t)
-    i2s_channel_write(i2s_handle, (uint8_t const*)i2s_stereo_out, size * 2 * 2, &bytes_written, 12);
+    i2s_channel_write(i2s_handle, (uint8_t const*)i2s_stereo_out, size*2*2, &bytes_written, 12);
     if (bytes_written < size * 2 * 2) {
         ESP_LOGE(TAG, "Failed to write to I2S buffer %d != %d", bytes_written, size * 2 * 2);
         return ESP_FAIL;

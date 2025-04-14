@@ -90,7 +90,7 @@ struct Config {
 #define SD_CARD_MOUNT_POINT "/sdcard"
 #define USE_JOYSTICK
 #define USE_PAX
-
+#define NEW_COMBINED_WAVEFORMS
 
   static const gpio_num_t PWR_EN = GPIO_NUM_10;
   static const gpio_num_t PWR_ON = GPIO_NUM_14;

@@ -57,11 +57,11 @@ class C64Emu {
             instance->interruptSystemFunc();
         }
     }
-    // static void interruptProfilingBatteryCheckFuncWrapper() {
-    //   if (instance != nullptr) {
-    //     instance->interruptProfilingBatteryCheckFunc();
-    //   }
-    // }
+    static void interruptProfilingBatteryCheckFuncWrapper(void* parameter) {
+      if (instance != nullptr) {
+        instance->interruptProfilingBatteryCheckFunc();
+      }
+    }
     static void cpuCodeWrapper(void* parameter) {
         if (instance != nullptr) {
             instance->cpuCode(parameter);
@@ -88,11 +88,12 @@ class C64Emu {
     TaskHandle_t        cpuTask;
     TaskHandle_t        interruptTask;
     esp_timer_handle_t  interrupt_timer;
+    esp_timer_handle_t  profiling_timer;
 
     void handleKeyboardFunc();
     void interruptTODFunc();
     void interruptSystemFunc();
-    // void interruptProfilingBatteryCheckFunc();
+    void interruptProfilingBatteryCheckFunc();
     void cpuCode(void* parameter);
     bool updateTOD(CIA& cia);
 

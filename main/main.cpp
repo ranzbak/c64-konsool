@@ -101,11 +101,18 @@ extern "C" void app_main(void) {
 
     bsp_display_get_tearing_effect_semaphore(&semaphore);
 
+    float to50hz = 0;
+
     // Main loop outputs C64 screen contents to the display
     while (true) {
         // Wait for display refresh signal
         xSemaphoreTake(semaphore, 100 / portTICK_PERIOD_MS);
 
+        // We only want 50Hz output, so we'll skip some frames
+        if (to50hz > 1.0) {
         c64Emu.loop();
+         to50hz -= 1.0;
+        }
+        to50hz += 50.12/60;
     }
 }

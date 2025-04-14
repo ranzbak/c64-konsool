@@ -436,6 +436,7 @@ void CPUC64::logDebugInfo() {
 }
 
 void CPUC64::run() {
+    static int32_t wait_counter = 0;
     // pc *must* be set externally!
     cpuhalted             = false;
     debug                 = false;
@@ -509,18 +510,23 @@ void CPUC64::run() {
             restorenmi = false;
             setPCToIntVec(getMem(0xfffa) + (getMem(0xfffb) << 8), false);
         }
+
         // throttle CPU
         numofcyclespersecond += numofcycles;
         measuredcycles.fetch_add(numofcycles, std::memory_order_release);
+        
         uint16_t adjustcyclestmp = adjustcycles.load(std::memory_order_acquire);
-        uint64_t sleeptime       = 0;
+        int64_t sleeptime       = 0;
         if (adjustcyclestmp > 0) {
             presleeptime = esp_timer_get_time();
-            vTaskDelay((adjustcyclestmp >> 10) / portTICK_PERIOD_MS);  // ms sleep
-            sleeptime = adjustcyclestmp - (esp_timer_get_time() - presleeptime);
-            if (sleeptime < adjustcyclestmp) {
-                esp_rom_delay_us(sleeptime);  // Fine tune the speed with us sleep
+            if(adjustcyclestmp + wait_counter > 0) {
+                vTaskDelay(((adjustcyclestmp + wait_counter) >> 10) / portTICK_PERIOD_MS);  // ms sleep
             }
+            sleeptime = adjustcyclestmp - (esp_timer_get_time() - presleeptime);
+            wait_counter += sleeptime;
+            // if (sleeptime < adjustcyclestmp) {
+            //     esp_rom_delay_us(sleeptime);  // Fine tune the speed with us sleep
+            // }
             adjustcycles.store(0, std::memory_order_release);
         }
     }
@@ -613,6 +619,5 @@ void CPUC64::exeSubroutine(uint16_t addr, uint8_t rega, uint8_t regx, uint8_t re
 }
 
 void CPUC64::setKeycodes(uint8_t keycode1, uint8_t keycode2) {
-    // TODO: Tanmatsu keyboard input here
     c64emu->konsoolkb.setKbcodes(keycode1, keycode2);
 }

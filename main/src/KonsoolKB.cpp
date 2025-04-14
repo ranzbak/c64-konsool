@@ -18,6 +18,7 @@
 extern "C" {
 #include <esp_log.h>
 #include "bsp/input.h"
+#include "bsp/audio.h"
 }
 #include <cstdint>
 #include <cstring>
@@ -390,6 +391,19 @@ void KonsoolKB::handleKeyPress() {
                         sentdc00 = 0xfe;
                         sentdc01 = 0xbf;
                         break;
+                    case BSP_INPUT_NAVIGATION_KEY_VOLUME_DOWN:
+                        if (audio_volume > 0) {
+                            audio_volume -= 5;
+                        bsp_audio_set_volume(audio_volume);
+                        };
+                        break;
+                    case BSP_INPUT_NAVIGATION_KEY_VOLUME_UP:
+                        if (audio_volume < 100) {
+                            audio_volume += 5;
+                        bsp_audio_set_volume(audio_volume);
+                        };
+                        break;
+
                     // case BSP_INPUT_NAVIGATION_KEY_F6:
                     //     sentdc00 = 0xfe;
                     //     sentdc01 = 0xbf;

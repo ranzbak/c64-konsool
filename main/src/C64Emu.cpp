@@ -254,11 +254,7 @@ void C64Emu::setup()
     cpu.init(ram, charset_rom, &vic, this);
 
     // init SID
-    sid.init(
-        cpu.getSidRegs(),
-        [](int16_t* buf, size_t num) { instance->i2s.write(buf, num); },
-        8580
-    );
+    sid.init(cpu.getSidRegs(), [](int16_t* buf, size_t num) { instance->i2s.write(buf, num); }, 8580);
 
     // init Menu system
     menuController.init(this);
@@ -277,7 +273,13 @@ void C64Emu::setup()
                             1);              // Core where the task should run
 
     // Interrupt handler for keyboard IO (keyboard)
-    xTaskCreatePinnedToCore(handleKeyboardFuncWrapper, "interruptSystem", 4096, NULL, 0, &interruptTask, 0);
+    xTaskCreatePinnedToCore(handleKeyboardFuncWrapper,  // Keyboard task
+                            "keyboardHandler",           //
+                            4096,                       //
+                            NULL,                       //
+                            0,                          //
+                            &interruptTask,             //
+                            0);
 
     // interrupt each 1000 us to get keyboard codes and throttle 6502 CPU
     // TODO add keyboard handling back

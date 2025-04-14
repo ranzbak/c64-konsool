@@ -19,7 +19,7 @@ typedef void (*AudioCallback)(int16_t* samples, size_t num_samples);
 // 50.06 // 50.0443427 //50.1245419 //(C64_PAL_CPUCLK/63/312.5), selected
 // carefully otherwise some ADSR-sensitive tunes may suffer more:
 #define DEFAULT_SAMPLERATE \
-    16000.0  //(Soldier of Fortune, 2nd Reality, Alliance, X-tra energy, Jackal,
+    22050.0  //(Soldier of Fortune, 2nd Reality, Alliance, X-tra energy, Jackal,
              // 16000.0 //(Soldier of Fortune, 2nd Reality, Alliance, X-tra energy, Jackal,
              // Sanxion, Ultravox, Hard Track, Swing, Myth, LN3, etc.)
 #define CLOCK_RATIO_DEFAULT \

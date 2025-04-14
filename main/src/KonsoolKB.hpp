@@ -41,6 +41,7 @@ class KonsoolKB {
     uint16_t key_hold;
 
     bool menu_overlay_active = false;
+    uint8_t         audio_volume = 80;    
 
    public:
     bool     deviceConnected;

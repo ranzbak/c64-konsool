@@ -71,15 +71,18 @@ void KonsoolKB::init(C64Emu* c64emu) {
     // init div
     virtjoystickvalue = 0xff;
     detectreleasekey  = false;
+
 }
 
 void KonsoolKB::handleKeyPress() {
     bsp_input_event_t event;
     uint8_t           key_code;
-
     if (this->display == nullptr) {
         this->display = c64emu->cpu.vic->getDriver();
     }
+    // Sync menu state with menu draw routine
+    display->enableMenuOverlay(menuController->getVisible());
+
 
     // shiftctrlcode = second byte bit 0 -> left shift, bit 1 -> ctrl, bit 2 -> commodore, bit 7 -> external command
     if (xQueueReceive(input_event_queue, &event, pdMS_TO_TICKS(10)) == pdTRUE) {

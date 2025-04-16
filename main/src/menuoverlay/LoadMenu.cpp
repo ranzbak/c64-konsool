@@ -90,6 +90,8 @@ void LoadMenu::loadPrg(MenuItem* item) {
     vTaskDelay(3000 / portTICK_PERIOD_MS);  // ~1second
     // Load the program
     ext->loadPrg(item->title.c_str());
+    vTaskDelay(1000 / portTICK_PERIOD_MS);  // ~1second
+    menuController->hide();
 }
 
 void LoadMenu::update() {

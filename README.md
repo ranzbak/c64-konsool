@@ -1,4 +1,40 @@
-# Template app project
+# Konsool 64
+
+## Introduction
+
+This application is a functional C64 emulator that run on the [Konsool/Tanmatsu](https://badge.team/docs/badges/konsool/) device.
+
+On the Konsool device, the emulator both outputs audio and video and accepts keyboard input.
+
+## Usage
+
+### Accessing the menu 
+
+Press the 'purple diamond' button on the device at any time to open or close the menu.
+
+### Navigation
+
+The following keys are used:
+
+| Key            | Description                 |
+| -------------- | --------------------------- |
+| Purple diamond | Show or hide menu           |
+| Up/Down        | Move up and down the menus. |
+| Enter          | Activate a menu item        |
+| ESC            | Go back one menu up         |
+
+
+Since the menu structure is still being developed, I'm going to not document more details at this time.
+
+## Loading games
+
+At this time only the loading of **.PRG** files is supported, .d64 files are in the planning.
+
+- To load .prg files, put them on in the root of the SD card file system.
+
+- By Opening the menu and select 'Load PRG', a .prg file can be selected and loaded.
+
+- When the C64 screen shows again, type the command 'run' and press enter.
 
 ## Prequisites
 

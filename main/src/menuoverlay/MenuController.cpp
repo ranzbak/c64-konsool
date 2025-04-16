@@ -2,6 +2,7 @@
 #include <cstring>
 #include <string>
 #include "C64Emu.hpp"
+#include "DisplayDriver.hpp"
 #include "MainMenu.hpp"
 #include "esp_log.h"
 #include "menuoverlay/MenuTypes.hpp"
@@ -20,7 +21,8 @@ void MenuController::init(C64Emu* c64emu) {
     rootMenu               = new MainMenu("Main Menu", nullptr, this);
     currentMenu            = rootMenu;
     // Initialize the menu overlay
-    fb                     = c64emu->cpu.vic->getDriver()->getMenuFb();
+    DisplayDriver *driver = c64emu->cpu.vic->getDriver();
+    fb                     = driver->getMenuFb();
     // HID Pax framebuffer
     pax_buf_init(fb, NULL, 640, 400, PAX_BUF_16_565RGB);
     pax_buf_reversed(fb, true);
@@ -28,6 +30,8 @@ void MenuController::init(C64Emu* c64emu) {
 
     // Initialize the menus
     rootMenu->init();
+
+    driver->enableMenuOverlay(visible);
 
     // Call render function to initialize the menu overlay
     render();

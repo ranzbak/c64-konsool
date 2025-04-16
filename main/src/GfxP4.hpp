@@ -28,7 +28,7 @@
 // no elegant/simple solution for max() at compile time in C++11
 // #define MAX(X, Y) (((X) > (Y)) ? (X) : (Y))
 
-class Pax : public DisplayDriver {
+class GfxP4 : public DisplayDriver {
    private:
     static const uint16_t c64_black      = 0x0000;
     static const uint16_t c64_white      = 0xffff;

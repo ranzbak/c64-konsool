@@ -8,7 +8,7 @@ idf_component_register(
 		"src/ExternalCmds.cpp"
 		"src/Joystick.cpp"
 		"src/KonsoolKB.cpp"
-		"src/Pax.cpp"
+		"src/GfxP4.cpp"
 		"src/SDCard.cpp"
 		"src/VIC.cpp"
 		"src/konsoolled.cpp"

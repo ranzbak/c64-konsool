@@ -40,7 +40,6 @@ extern "C" {
 #include "nvs_flash.h"
 }
 #endif
-// #include "Pax.hpp"
 #include "driver/gpio.h"
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"

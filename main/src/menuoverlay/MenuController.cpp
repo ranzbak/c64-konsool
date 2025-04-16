@@ -48,7 +48,12 @@ void MenuController::render() {
     size_t i = 0;
     for (const auto& item : items) {
         uint32_t    color = currentMenu->getSelectedItemIndex() == i ? 0xff0000ff : 0xffffffff;
-        std::string title = ("-- " + item.title + " --");
+        std::string title;
+        if (item.type == MenuItemType::TOGGLE) {
+            title = ("-- " + item.title + (item.checked ? "yes" : "no") + " --");
+        } else {
+            title = ("-- " + item.title + " --");
+        }
         // ESP_LOGI(TAG, "Menu Item %d: %s", i, title.c_str());
         pax_draw_text(fb, color, pax_font_sky_mono, 16, 30, 60 + i * 20, title.c_str());
         ++i;

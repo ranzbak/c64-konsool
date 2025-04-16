@@ -21,8 +21,8 @@
 #include "ST7789V.hpp"
 #elif defined(USE_RM67162)
 #include "RM67162.h"
-#elif defined(USE_PAX)
-#include "Pax.hpp"
+#elif defined(USE_GFXP4)
+#include "GfxP4.hpp"
 #endif
 
 struct ConfigDisplay {
@@ -35,9 +35,9 @@ struct ConfigDisplay {
     ConfigDisplay() {
         displayDriver = new RM67162();
     }
-#elif defined(USE_PAX)
+#elif defined(USE_GFXP4)
     ConfigDisplay() {
-        displayDriver = new Pax();
+        displayDriver = new GfxP4();
     }
 #endif
 };

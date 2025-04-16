@@ -25,8 +25,9 @@ esp_err_t I2S::init()
     }
 
     bsp_audio_set_volume(80);
+    // TODO: Add enable to menu
     ESP_LOGI(TAG, "Enable aplifier for audio output");
-    bsp_audio_set_amplifier(true);
+    bsp_audio_set_amplifier(false);
 
     ESP_LOGI(TAG, "Initializing I2S audio interface");
     // I2S audio
@@ -99,11 +100,6 @@ esp_err_t I2S::write(const int16_t* data, size_t size)
             .r = swapped
         }.val;
 
-        // if ((test_index & 1 << 4) == 0)
-        //     stereo_sample = MonoToStereo{.l = 30000, .r = 30000}.val;
-        // else
-        //     stereo_sample = MonoToStereo{.l = -30000, .r = -30000}.val;
-        // test_index++;
         reinterpret_cast<uint32_t*>(i2s_stereo_out)[i] = stereo_sample;
     }
 

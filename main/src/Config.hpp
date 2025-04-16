@@ -35,7 +35,6 @@ extern "C" {
 struct Config {
 
 #if defined(BOARD_T_HMI)
-// TODO: Replace with Pax setup
 // #define USE_ST7789V
 #define USE_SDCARD
 #define USE_JOYSTICK
@@ -89,7 +88,7 @@ struct Config {
 #define USE_SDCARD
 #define SD_CARD_MOUNT_POINT "/sdcard"
 #define USE_JOYSTICK
-#define USE_PAX
+#define USE_GFXP4
 #define NEW_COMBINED_WAVEFORMS
 
   static const gpio_num_t PWR_EN = GPIO_NUM_10;

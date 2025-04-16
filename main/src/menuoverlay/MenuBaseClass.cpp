@@ -67,23 +67,26 @@ void MenuBaseClass::activateItem(uint16_t id) {
         ESP_LOGI(TAG, "Invalid menu item ID: %d", id);
         return;
     }
-    MenuItem item = items[selectedItemIndex];
-    if (item.disabled) {
+    MenuItem *item = &items[selectedItemIndex];
+    if (item->disabled) {
         return;
     }
-    switch (item.type) {
+    switch (item->type) {
         case MenuItemType::ACTION:
             // Perform action
-            item.action(&item);
+            item->action(item);
             break;
         case MenuItemType::SUBMENU:
             // Open submenu
-            ESP_LOGI(TAG, "Opening submenu: %s", item.title.c_str());
-            menuController->setCurrentMenu(item.submenu);
-            // menuController->render();
+            ESP_LOGI(TAG, "Opening submenu: %s", item->title.c_str());
+            menuController->setCurrentMenu(item->submenu);
             break;
         case MenuItemType::TOGGLE:
-            item.checked = !item.checked;
+            item->checked = !item->checked;
+            ESP_LOGI(TAG, "Toggling toggle item: %s : %s", item->title.c_str(), item->checked? "yes" : "no" );
+            if (item->action != nullptr) {
+                item->action(item);
+            }
             // Toggle state
             break;
         // Add other types as needed

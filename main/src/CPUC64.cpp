@@ -20,6 +20,7 @@
 #include <cstdint>
 #include "C64Emu.hpp"
 #include "JoystickInitializationException.h"
+#include "esp_attr.h"
 #include "esp_timer.h"
 #include "portmacro.h"
 #include "roms/basic.h"
@@ -435,7 +436,7 @@ void CPUC64::logDebugInfo() {
     }
 }
 
-void CPUC64::run() {
+void IRAM_ATTR CPUC64::run() {
     static int32_t wait_counter = 0;
     // pc *must* be set externally!
     cpuhalted             = false;

@@ -17,8 +17,8 @@
 #include "VIC.hpp"
 #include <cstdint>
 #include <cstring>
-// #include "Config.hpp"
 #include "DisplayDriver.hpp"
+#include "esp_attr.h"
 #include "esp_heap_caps.h"
 #include "sid/sid.hpp"
 
@@ -656,7 +656,7 @@ uint8_t VIC::nextRasterline()
     return 0;
 }
 
-void VIC::drawRasterline()
+void IRAM_ATTR VIC::drawRasterline()
 {
     uint16_t line = rasterline;
     if ((line >= 50) && (line < 250)) {

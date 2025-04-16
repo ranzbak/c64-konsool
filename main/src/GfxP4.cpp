@@ -28,9 +28,9 @@ extern "C" {
 #include "esp_lcd_types.h"
 #include "freertos/idf_additions.h"
 }
-#ifdef USE_PAX
+#ifdef USE_GFXP4
 #include "HardwareInitializationException.h"
-#include "Pax.hpp"
+#include "GfxP4.hpp"
 // #include <FreeRTOS.h>
 #include <driver/gpio.h>
 #include <soc/gpio_struct.h>
@@ -43,7 +43,7 @@ extern "C" {
 #include "pax_gfx.h"
 #include "pax_text.h"
 
-static const char* TAG = "Pax";
+static const char* TAG = "GfxP4";
 
 // Global variables
 // static esp_lcd_panel_handle_t       display_lcd_panel    = NULL;
@@ -56,20 +56,20 @@ static const char* TAG = "Pax";
 
 // static uint32_t lu_pinbitmask[256];
 
-void Pax::blit(void) {
+void GfxP4::blit(void) {
     esp_lcd_panel_draw_bitmap(this->display_lcd_panel, 0, 0, this->display_h_res, this->display_v_res,
                               pax_buf_get_pixels(&this->fb));
 }
 
-void Pax::writeCmd(uint8_t cmd) {
+void GfxP4::writeCmd(uint8_t cmd) {
     // Write a command to the display
 }
 
-void Pax::writeData(uint8_t data) {
+void GfxP4::writeData(uint8_t data) {
     // Write a byte of data to the display
 }
 
-void Pax::init() {
+void GfxP4::init() {
     // Enable backlight
     esp_err_t res = bsp_display_get_panel(&display_lcd_panel);
     ESP_ERROR_CHECK(res);                             // Check that the display handle has been initialized
@@ -101,63 +101,63 @@ void Pax::init() {
 
     // Setup rotation and scale configuration
     // Initialize input configuration
-    Pax::active_config.in.pic_w          = 320;
-    Pax::active_config.in.pic_h          = 200;
-    Pax::active_config.in.block_w        = 320;
-    Pax::active_config.in.block_h        = 200;
-    Pax::active_config.in.block_offset_x = 0;
-    Pax::active_config.in.block_offset_y = 0;
-    Pax::active_config.in.srm_cm         = PPA_SRM_COLOR_MODE_RGB565;
+    GfxP4::active_config.in.pic_w          = 320;
+    GfxP4::active_config.in.pic_h          = 200;
+    GfxP4::active_config.in.block_w        = 320;
+    GfxP4::active_config.in.block_h        = 200;
+    GfxP4::active_config.in.block_offset_x = 0;
+    GfxP4::active_config.in.block_offset_y = 0;
+    GfxP4::active_config.in.srm_cm         = PPA_SRM_COLOR_MODE_RGB565;
 
     // Initialize output configuration
-    Pax::active_config.out.buffer         = raw_fb;
-    Pax::active_config.out.buffer_size    = display_h_res * display_v_res * 2;
-    Pax::active_config.out.pic_w          = display_h_res;
-    Pax::active_config.out.pic_h          = display_v_res;
-    Pax::active_config.out.block_offset_x = border_height;  // x_offset;
-    Pax::active_config.out.block_offset_y = border_width;   // y_offset;
-    Pax::active_config.out.srm_cm         = PPA_SRM_COLOR_MODE_RGB565;
+    GfxP4::active_config.out.buffer         = raw_fb;
+    GfxP4::active_config.out.buffer_size    = display_h_res * display_v_res * 2;
+    GfxP4::active_config.out.pic_w          = display_h_res;
+    GfxP4::active_config.out.pic_h          = display_v_res;
+    GfxP4::active_config.out.block_offset_x = border_height;  // x_offset;
+    GfxP4::active_config.out.block_offset_y = border_width;   // y_offset;
+    GfxP4::active_config.out.srm_cm         = PPA_SRM_COLOR_MODE_RGB565;
 
     // Initialize other configuration parameters
-    Pax::active_config.rotation_angle = PPA_SRM_ROTATION_ANGLE_270;
-    Pax::active_config.scale_x        = 2.0;
-    Pax::active_config.scale_y        = 2.0;
-    Pax::active_config.rgb_swap       = 0;
-    Pax::active_config.byte_swap      = 0;
-    Pax::active_config.mode           = PPA_TRANS_MODE_BLOCKING;
+    GfxP4::active_config.rotation_angle = PPA_SRM_ROTATION_ANGLE_270;
+    GfxP4::active_config.scale_x        = 2.0;
+    GfxP4::active_config.scale_y        = 2.0;
+    GfxP4::active_config.rgb_swap       = 0;
+    GfxP4::active_config.byte_swap      = 0;
+    GfxP4::active_config.mode           = PPA_TRANS_MODE_BLOCKING;
 
     // Fill config for the border
-    Pax::fill_config.out.buffer         = raw_fb;
-    Pax::fill_config.out.buffer_size    = display_h_res * display_v_res * sizeof(uint16_t);
-    Pax::fill_config.out.pic_w          = display_h_res;
-    Pax::fill_config.out.pic_h          = display_v_res;
-    Pax::fill_config.out.block_offset_x = 0;
-    Pax::fill_config.out.block_offset_y = 0;
-    Pax::fill_config.out.fill_cm        = PPA_FILL_COLOR_MODE_RGB565;  // Color mode matches buffer
-    Pax::fill_config.fill_block_w       = 0;
-    Pax::fill_config.fill_block_h       = 0;
-    Pax::fill_config.fill_argb_color    = {
+    GfxP4::fill_config.out.buffer         = raw_fb;
+    GfxP4::fill_config.out.buffer_size    = display_h_res * display_v_res * sizeof(uint16_t);
+    GfxP4::fill_config.out.pic_w          = display_h_res;
+    GfxP4::fill_config.out.pic_h          = display_v_res;
+    GfxP4::fill_config.out.block_offset_x = 0;
+    GfxP4::fill_config.out.block_offset_y = 0;
+    GfxP4::fill_config.out.fill_cm        = PPA_FILL_COLOR_MODE_RGB565;  // Color mode matches buffer
+    GfxP4::fill_config.fill_block_w       = 0;
+    GfxP4::fill_config.fill_block_h       = 0;
+    GfxP4::fill_config.fill_argb_color    = {
            .val = 0,  // Only lower 16 bits used for RGB565
     };
-    Pax::fill_config.mode      = PPA_TRANS_MODE_BLOCKING;
-    Pax::fill_config.user_data = NULL;
+    GfxP4::fill_config.mode      = PPA_TRANS_MODE_BLOCKING;
+    GfxP4::fill_config.user_data = NULL;
 }
 
-void Pax::copyinit(uint16_t x0, uint16_t y0, uint16_t w, uint16_t h) {
+void GfxP4::copyinit(uint16_t x0, uint16_t y0, uint16_t w, uint16_t h) {
     // Start copy on display?? not sure
     // uint16_t x1 = x0 + w - 1;
     // uint16_t y1 = y0 + h - 1;
 }
 
-void Pax::copycopy(uint16_t data, uint32_t clearMask) {
+void GfxP4::copycopy(uint16_t data, uint32_t clearMask) {
     // Copy data on display ?? not sure
 }
 
-void Pax::copyend() {
+void GfxP4::copyend() {
     // End copy on display?? not sure
 }
 
-void Pax::copyColor(uint16_t x0, uint16_t y0, uint16_t w, uint16_t h, uint16_t data) {
+void GfxP4::copyColor(uint16_t x0, uint16_t y0, uint16_t w, uint16_t h, uint16_t data) {
     uint32_t argb = rgb565ToRgb8888(data);
 
     // Make sure the x and y coordinates are switched to rotate the display
@@ -171,7 +171,7 @@ void Pax::copyColor(uint16_t x0, uint16_t y0, uint16_t w, uint16_t h, uint16_t d
     ppa_do_fill(ppa_fill_handle, &fill_config);
 }
 
-uint32_t Pax::rgb565ToRgb8888(uint16_t rgb565) {
+uint32_t GfxP4::rgb565ToRgb8888(uint16_t rgb565) {
 
     uint8_t r5 = (rgb565 >> 11) & 0x1F;
     uint8_t g6 = (rgb565 >> 5) & 0x3F;
@@ -184,59 +184,58 @@ uint32_t Pax::rgb565ToRgb8888(uint16_t rgb565) {
     return (0xFF << 24) | (r8 << 16) | (g8 << 8) | b8;  // ARGB8888
 }
 
-void Pax::drawFrame(uint16_t* frameColors) {
+void IRAM_ATTR GfxP4::drawFrame(uint16_t* frameColors) {
 
     // Top bar
-    Pax::copyColor(0, 0, display_v_res, border_height, frameColors[0]);
+    GfxP4::copyColor(0, 0, display_v_res, border_height, frameColors[0]);
     // Bottom bar
-    Pax::copyColor(0, vic_v_height + border_height, display_v_res, border_height, frameColors[0]);
+    GfxP4::copyColor(0, vic_v_height + border_height, display_v_res, border_height, frameColors[0]);
     // Left bar
-    // Pax::copyColor(0, 0, border_width, display_h_res, frameColors[0]);
     // Use PPA to rotate and scale the bitmap to the display.
     active_config.in.buffer              = frameColors;
-    Pax::active_config.in.pic_w          = 200;
-    Pax::active_config.in.pic_h          = 1;
-    Pax::active_config.in.block_w        = 200;
-    Pax::active_config.in.block_h        = 1;
-    Pax::active_config.in.block_offset_x = 0;
-    Pax::active_config.in.block_offset_y = 0;
+    GfxP4::active_config.in.pic_w          = 200;
+    GfxP4::active_config.in.pic_h          = 1;
+    GfxP4::active_config.in.block_w        = 200;
+    GfxP4::active_config.in.block_h        = 1;
+    GfxP4::active_config.in.block_offset_x = 0;
+    GfxP4::active_config.in.block_offset_y = 0;
 
     // Initialize output configuration
-    Pax::active_config.out.buffer         = raw_fb;
-    Pax::active_config.out.buffer_size    = display_h_res * display_v_res * 2;
-    Pax::active_config.out.pic_w          = display_h_res;
-    Pax::active_config.out.pic_h          = display_v_res;
-    Pax::active_config.out.block_offset_x = border_height;  // x_offset;
-    Pax::active_config.out.block_offset_y = 0;              // y_offset;
+    GfxP4::active_config.out.buffer         = raw_fb;
+    GfxP4::active_config.out.buffer_size    = display_h_res * display_v_res * 2;
+    GfxP4::active_config.out.pic_w          = display_h_res;
+    GfxP4::active_config.out.pic_h          = display_v_res;
+    GfxP4::active_config.out.block_offset_x = border_height;  // x_offset;
+    GfxP4::active_config.out.block_offset_y = 0;              // y_offset;
 
     // Initialize other configuration parameters
-    Pax::active_config.rotation_angle = PPA_SRM_ROTATION_ANGLE_180;
-    Pax::active_config.scale_x        = 2.0;
-    Pax::active_config.scale_y        = border_width;
+    GfxP4::active_config.rotation_angle = PPA_SRM_ROTATION_ANGLE_180;
+    GfxP4::active_config.scale_x        = 2.0;
+    GfxP4::active_config.scale_y        = border_width;
     ESP_ERROR_CHECK(ppa_do_scale_rotate_mirror(ppa_srm_handle, &active_config));
     // Right bar
-    Pax::active_config.out.block_offset_y = border_width + vic_h_width;  // y_offset;
+    GfxP4::active_config.out.block_offset_y = border_width + vic_h_width;  // y_offset;
     ESP_ERROR_CHECK(ppa_do_scale_rotate_mirror(ppa_srm_handle, &active_config));
 
     // Pax::copyColor(border_width + vic_h_width, 0, border_width, display_h_res, frameColors[0]);
 }
 
-void Pax::drawMenuOverlay() {
+void GfxP4::drawMenuOverlay() {
     active_config.in.buffer               = (uint16_t*)fb.buf_16bpp;
-    Pax::active_config.in.pic_w           = 640;
-    Pax::active_config.in.pic_h           = 400;
-    Pax::active_config.in.block_w         = 640;
-    Pax::active_config.in.block_h         = 400;
-    Pax::active_config.out.block_offset_x = border_height;  // x_offset;
-    Pax::active_config.out.block_offset_y = border_width;   // y_offset;
-    Pax::active_config.scale_x            = 1.0;
-    Pax::active_config.scale_y            = 1.0;
-    Pax::active_config.rotation_angle     = PPA_SRM_ROTATION_ANGLE_270;
+    GfxP4::active_config.in.pic_w           = 640;
+    GfxP4::active_config.in.pic_h           = 400;
+    GfxP4::active_config.in.block_w         = 640;
+    GfxP4::active_config.in.block_h         = 400;
+    GfxP4::active_config.out.block_offset_x = border_height;  // x_offset;
+    GfxP4::active_config.out.block_offset_y = border_width;   // y_offset;
+    GfxP4::active_config.scale_x            = 1.0;
+    GfxP4::active_config.scale_y            = 1.0;
+    GfxP4::active_config.rotation_angle     = PPA_SRM_ROTATION_ANGLE_270;
 
     ESP_ERROR_CHECK(ppa_do_scale_rotate_mirror(ppa_srm_handle, &active_config));
 }
 
-void Pax::drawBitmap(uint16_t* bitmap) {
+void GfxP4::drawBitmap(uint16_t* bitmap) {
     // Overlay the menu if enabled
     if (menu_overlay_enabled) {
         // Draw menu
@@ -246,25 +245,25 @@ void Pax::drawBitmap(uint16_t* bitmap) {
         active_config.in.buffer = bitmap;
 
         // Use PPA to rotate and scale the bitmap to the display.
-        Pax::active_config.in.pic_w          = 320;
-        Pax::active_config.in.pic_h          = 200;
-        Pax::active_config.in.block_w        = 320;
-        Pax::active_config.in.block_h        = 200;
-        Pax::active_config.in.block_offset_x = 0;
-        Pax::active_config.in.block_offset_y = 0;
+        GfxP4::active_config.in.pic_w          = 320;
+        GfxP4::active_config.in.pic_h          = 200;
+        GfxP4::active_config.in.block_w        = 320;
+        GfxP4::active_config.in.block_h        = 200;
+        GfxP4::active_config.in.block_offset_x = 0;
+        GfxP4::active_config.in.block_offset_y = 0;
 
         // Initialize output configuration
-        Pax::active_config.out.buffer         = raw_fb;
-        Pax::active_config.out.buffer_size    = display_h_res * display_v_res * 2;
-        Pax::active_config.out.pic_w          = display_h_res;
-        Pax::active_config.out.pic_h          = display_v_res;
-        Pax::active_config.out.block_offset_x = border_height;  // x_offset;
-        Pax::active_config.out.block_offset_y = border_width;   // y_offset;
+        GfxP4::active_config.out.buffer         = raw_fb;
+        GfxP4::active_config.out.buffer_size    = display_h_res * display_v_res * 2;
+        GfxP4::active_config.out.pic_w          = display_h_res;
+        GfxP4::active_config.out.pic_h          = display_v_res;
+        GfxP4::active_config.out.block_offset_x = border_height;  // x_offset;
+        GfxP4::active_config.out.block_offset_y = border_width;   // y_offset;
 
         // Initialize other configuration parameters
-        Pax::active_config.rotation_angle = PPA_SRM_ROTATION_ANGLE_270;
-        Pax::active_config.scale_x        = 2.0;
-        Pax::active_config.scale_y        = 2.0;
+        GfxP4::active_config.rotation_angle = PPA_SRM_ROTATION_ANGLE_270;
+        GfxP4::active_config.scale_x        = 2.0;
+        GfxP4::active_config.scale_y        = 2.0;
         ESP_ERROR_CHECK(ppa_do_scale_rotate_mirror(ppa_srm_handle, &active_config));
     }
 
@@ -272,15 +271,15 @@ void Pax::drawBitmap(uint16_t* bitmap) {
     ESP_ERROR_CHECK(esp_lcd_panel_draw_bitmap(display_lcd_panel, 0, 0, display_h_res, display_v_res, raw_fb));
 }
 
-void Pax::enableMenuOverlay(bool enable) {
+void GfxP4::enableMenuOverlay(bool enable) {
     menu_overlay_enabled = enable;
 }
 
-pax_buf_t* Pax::getMenuFb() {
+pax_buf_t* GfxP4::getMenuFb() {
     return &fb;
 }
 
-const uint16_t* Pax::getC64Colors() const {
+const uint16_t* GfxP4::getC64Colors() const {
     return c64Colors;
 }
 #endif

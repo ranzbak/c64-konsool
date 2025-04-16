@@ -8,8 +8,7 @@
 #include <cstdint>
 #include "Config.hpp"
 #include "esp_log.h"
-#include "esp_timer.h"
-#include "freertos/idf_additions.h"
+#include "precalc.hpp"
 // #include "precalc.h"
 
 typedef uint8_t byte;
@@ -20,11 +19,15 @@ typedef uint8_t byte;
 
 #define PERIOD0 CLOCK_RATIO_DEFAULT  // max(round(clock_ratio),9)
 #define STEP0   3                    // ceil(PERIOD0/9.0)
-uint32_t TriSaw_8580[4096], PulseSaw_8580[4096], PulseTriSaw_8580[4096];
-float ADSRperiods[16] = {PERIOD0, 32, 63, 95, 149, 220, 267, 313, 392, 977, 1954, 3126, 3907, 11720, 19532, 31251};
-byte  ADSRstep[16]    = {STEP0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
 
-const byte ADSR_exptable[256] = {
+static float       ADSRperiods[16]     = {PERIOD0, 32,  63,   95,   149,  220,   267,   313,
+                                          392,     977, 1954, 3126, 3907, 11720, 19532, 31251};
+static byte        ADSRstep[16]        = {STEP0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
+static const float resonance_table[16] = {1.414214, 1.296840, 1.189207, 1.090508, 1.000000, 0.917004,
+                                          0.840896, 0.771105, 0.707107, 0.648420, 0.594604, 0.545254,
+                                          0.500000, 0.458502, 0.420448, 0.385553};
+
+static const byte ADSR_exptable[256] = {
     1, 30, 30, 30, 30, 30, 30, 16, 16, 16, 16, 16, 16, 16, 16, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 4, 4, 4, 4,
     4,  // pos0:1  pos6:30  pos14:16
         // pos26:8
@@ -36,24 +39,32 @@ const byte ADSR_exptable[256] = {
     1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
     1, 1, 1, 1};
 
+const uint8_t FILTSW[9]           = {1, 2, 4, 1, 2, 4, 1, 2, 4};
+
+// sample output buffer
+int16_t  sample_buffer[SAMPLE_BUFFER_SIZE];
+uint16_t sample_buffer_pos = 0;
+
 SID::SID()
 {
 }
 
-void SID::cSID_init(int32_t samplerate)
+void SID::cSID_init()
 {
     int i;
-    clock_ratio = C64_PAL_CPUCLK / samplerate;
-    if (clock_ratio > 9) {
-        ADSRperiods[0] = clock_ratio;
-        ADSRstep[0]    = ceil(clock_ratio / 9.0);
+    clock_ratio = C64_PAL_CPUCLK / DEFAULT_SAMPLERATE;
+    if (CLOCK_RATIO > 9) {
+        ADSRperiods[0] = CLOCK_RATIO;
+        ADSRstep[0]    = ceil(CLOCK_RATIO / 9.0);
     } else {
         ADSRperiods[0] = 9.0;
         ADSRstep[0]    = 1;
     }
-    cutoff_ratio_8580 = -2 * 3.14 * (12500.0 / 2048) /
-                        samplerate;  // -2 * 3.14 * ((82000/6.8) / 2048) / samplerate; //approx. 30Hz..12kHz according
-                                     // to datasheet, but only for 6.8nF value, 22nF makes 9Hz...3.7kHz? wrong
+
+    // const static cutoff_ratio_8580 = -2 * 3.14 * (12500.0 / 2048) /
+    //                     samplerate;  // -2 * 3.14 * ((82000/6.8) / 2048) / samplerate; //approx. 30Hz..12kHz
+    //                     according
+    //                                  // to datasheet, but only for 6.8nF value, 22nF makes 9Hz...3.7kHz? wrong
     cap_6581_reciprocal = -1000000 / CAP_6581;  // lighten CPU-load in sample-callback
     cutoff_steepness_6581 =
         FILTER_DARKNESS_6581 *
@@ -68,9 +79,10 @@ void SID::cSID_init(int32_t samplerate)
     // //(cutoff_top_6581-cutoff_bottom_6581)/(2048.0-192.0); //datasheet: 30Hz..12kHz with 2.2pF -> 140Hz..56kHz with
     // 470pF?
 
-    // createCombinedWF(TriSaw_8580, 0.8, 2.4, 0.64);
-    // createCombinedWF(PulseSaw_8580, 1.4, 1.9, 0.68);
-    // createCombinedWF(PulseTriSaw_8580, 0.8, 2.5, 0.64);
+    // Not needed as procalc values are included in the provided code
+    // createCombinedWF(TriSaw_8580, 0.5, 2.2, 0.9);
+    // createCombinedWF(PulseSaw_8580, 0.23, 1.27, 0.55);
+    // createCombinedWF(PulseTriSaw_8580, 0.5, 1.6, 0.8);
 
     for (i = 0; i < 9; i++) {
         ADSRstate[i]  = HOLDZERO_BITMASK;
@@ -144,6 +156,13 @@ void SID::raster_line()
     }
 }
 
+// Based on Schraudolph's "A Fast, Compact Approximation of the Exponential Function"
+float fast_exp2(float x) {
+    union { float f; int32_t i; } v;
+    v.i = (int32_t)(12102203 * x + 1065353216); // log2(e) * 2^23
+    return v.f;
+}
+
 // My SID implementation is similar to what I worked out in a SwinSID variant during 3..4 months of development. (So
 // jsSID only took 2 weeks armed with this experience.) I learned the workings of ADSR/WAVE/filter operations mainly
 // from the quite well documented resid and resid-fp codes. (The SID reverse-engineering sites were also good sources.)
@@ -192,7 +211,7 @@ int SID::cycle(unsigned char num,
         }
         prevSR[channel]   = SR;  // if(SR&0xF) ratecnt[channel]+=5;  //assume SR->GATE write order: workaround to have
                                  // crisp soundstarts by triggering delay-bug
-        ratecnt[channel] += clock_ratio;
+        ratecnt[channel] += CLOCK_RATIO;
         if (ratecnt[channel] >= 0x8000)
             ratecnt[channel] -= 0x8000;  // can wrap around (ADSR delay-bug: short 1st
                                          // frame)
@@ -206,7 +225,7 @@ int SID::cycle(unsigned char num,
             step = SR & 0xF;
         period = ADSRperiods[step];
         step   = ADSRstep[step];
-        if (ratecnt[channel] >= period && ratecnt[channel] < period + clock_ratio &&
+        if (ratecnt[channel] >= period && ratecnt[channel] < period + CLOCK_RATIO &&
             tmp == 0) {                  // ratecounter shot (matches rateperiod) (in genuine SID ratecounter is LFSR)
             ratecnt[channel] -= period;  // compensation for timing instead of simply setting 0 on rate-counter overload
             if ((ADSRstate[channel] & ATTACK_BITMASK) || ++expcnt[channel] == ADSR_exptable[envcnt[channel]]) {
@@ -234,7 +253,7 @@ int SID::cycle(unsigned char num,
         // WAVE-generation code (phase accumulator and waveform-selector):
         test    = ctrl & TEST_BITMASK;
         wf      = ctrl & 0xF0;
-        accuadd = (vReg[0] + vReg[1] * 256) * clock_ratio;
+        accuadd = (vReg[0] + vReg[1] * 256) * (uint32_t)CLOCK_RATIO;
         if (test || ((ctrl & SYNC_BITMASK) && sourceMSBrise[num]))
             phaseaccu[channel] = 0;
         else {
@@ -374,8 +393,8 @@ int SID::cycle(unsigned char num,
     // cutoff-frequency with 1.5MOhm.)
     cutoff[num] = sReg[0x16] * 8 + (sReg[0x15] & 7);
     if (SID_model[num] == 8580) {
-        cutoff[num]    = (1 - exp((cutoff[num] + 2) * cutoff_ratio_8580));  // linear curve by resistor-ladder VCR
-        resonance[num] = (pow(2, ((4 - (sReg[0x17] >> 4)) / 8.0)));
+        cutoff[num]    = (1 - fast_exp2((cutoff[num] + 2) * CUTOFF_RATIO_8580));  // linear curve by resistor-ladder VCR
+        resonance[num] = resonance_table[sReg[0x17] >> 4];
     } else {  // 6581
         cutoff[num] +=
             round(filtin * FILTER_DISTORTION_6581);  // MOSFET-VCR control-voltage-modulation (resistance-modulation aka
@@ -387,8 +406,8 @@ int SID::cycle(unsigned char num,
                       (cutoff[num] -
                        VCR_FET_TRESHOLD);  // rDS ~ (-Vth*rDSon) / (Vgs-Vth)  //above Vth FET drain-source resistance is
                                            // proportional to reciprocal of cutoff-control voltage
-        cutoff[num] = (1 - exp(cap_6581_reciprocal / (VCR_SHUNT_6581 * rDS_VCR_FET / (VCR_SHUNT_6581 + rDS_VCR_FET)) /
-                               samplerate));  // curve with 1.5MOhm VCR parallel Rshunt emulation
+        cutoff[num] = (1 - fast_exp2(cap_6581_reciprocal / (VCR_SHUNT_6581 * rDS_VCR_FET / (VCR_SHUNT_6581 + rDS_VCR_FET)) /
+                               DEFAULT_SAMPLERATE));  // curve with 1.5MOhm VCR parallel Rshunt emulation
         resonance[num] = ((sReg[0x17] > 0x5F) ? 8.0 / (sReg[0x17] >> 4) : 1.41);
     }
     filtout = 0;
@@ -409,7 +428,7 @@ int SID::cycle(unsigned char num,
     // sound distorted anymore, and the volume-clicks disappear when setting SID-volume. (This is useful for fade-in/out
     // tunes like Hades Nebula, where clicking ruins the intro.)
     output = (nonfilt + filtout) * (sReg[0x18] & 0xF) / OUTPUT_SCALEDOWN;
-    // if (output>=32767) output=32767; else if (output<=-32768) output=-32768; //saturation logic on overload (not
+    if (output>=32767) output=32767; else if (output<=-32768) output=-32768; //saturation logic on overload (not
     // needed if the callback handles it)
     return (int)output;  // master output
 }
@@ -474,7 +493,8 @@ int SID::cycle(unsigned char num,
 // in case you don't like these calculated combined waveforms it's easy to substitute the generated tables by
 // pre-sampled 'exact' versions
 
-unsigned int SID::combinedWF(uint8_t num, uint8_t channel, uint32_t* wfarray, int index, char differ6581, uint8_t freqh)
+int32_t SID::combinedWF(uint8_t num, uint8_t channel, const uint32_t* wfarray, int index, char differ6581,
+                        uint8_t freqh)
 {
     static float addf;
     if (freqh == 0) freqh = 1;  // avoid division by zero
@@ -488,34 +508,18 @@ unsigned int SID::combinedWF(uint8_t num, uint8_t channel, uint32_t* wfarray, in
     return prevwavdata[channel];
 }
 
-#ifdef NEW_COMBINED_WAVEFORMS
-void SID::createCombinedWF(uint32_t* wfarray, float bitmul, float bitstrength, float treshold)
-{
-    int i, j, k;
-    for (i = 0; i < 4096; i++) {
-        wfarray[i] = 0;
-        for (j = 0; j < 12; j++) {
-            vTaskDelay(0);
-            float bitlevel = ((i >> j) & 1);
-            for (k = 0; k < 12; k++)
-                if (!((i >> k) & 1)) bitlevel -= bitmul / pow(bitstrength, fabs(k - j));
-            wfarray[i] += (bitlevel >= treshold) ? pow(2, j) : 0;
-        }
-        wfarray[i] *= 12;
-    }
-}
-#else
-void SID::createCombinedWF(unsigned int* wfarray, float bitmul, float bitstrength, float treshold)
-{
-    int i, j, k;
-    for (i = 0; i < 4096; i++) {
-        wfarray[i] = 0;
-        for (j = 0; j < 12; j++) {
-            float bitlevel = 0;
-            for (k = 0; k < 12; k++) bitlevel += (bitmul / pow(bitstrength, std::abs(k - j))) * (((i >> k) & 1) - 0.5);
-            wfarray[i] += (bitlevel >= treshold) ? pow(2, j) : 0;
-        }
-        wfarray[i] *= 12;
-    }
-}
-#endif
+// void SID::createCombinedWF(uint32_t* wfarray, float bitmul, float bitstrength, float treshold)
+// {
+//     int i, j, k;
+//     for (i = 0; i < 4096; i++) {
+//         wfarray[i] = 0;
+//         for (j = 0; j < 12; j++) {
+//             vTaskDelay(1);
+//             float bitlevel = ((i >> j) & 1);
+//             for (k = 0; k < 12; k++)
+//                 if (!((i >> k) & 1)) bitlevel -= bitmul / pow(bitstrength, std::abs(k - j));
+//             wfarray[i] += (bitlevel >= treshold) ? pow(2, j) : 0;
+//         }
+//         wfarray[i] *= 12;
+//     }
+// }

@@ -3,13 +3,14 @@
 // global constants and variables
 #include <cstddef>
 #include <cstdint>
+#include "esp_attr.h"
 
 typedef void (*AudioCallback)(int16_t* samples, size_t num_samples);
 
-// #define SIDMODEL_8580 8580
-// #define SIDMODEL_6581 6581
+#define SIDMODEL_8580 8580
+#define SIDMODEL_6581 6581
 
-// #define DEFAULT_SIDMODEL SIDMODEL_8580
+#define DEFAULT_SIDMODEL SIDMODEL_6581
 
 #define C64_PAL_CPUCLK     985248.0
 #define SID_CHANNEL_AMOUNT 3
@@ -19,10 +20,10 @@ typedef void (*AudioCallback)(int16_t* samples, size_t num_samples);
 // 50.06 // 50.0443427 //50.1245419 //(C64_PAL_CPUCLK/63/312.5), selected
 // carefully otherwise some ADSR-sensitive tunes may suffer more:
 // TODO: Higher sample frequency in the future, but for no we don't have the cycles.
-#define DEFAULT_SAMPLERATE \
-    11025.0  //(Soldier of Fortune, 2nd Reality, Alliance, X-tra energy, Jackal,
-             // 16000.0 //(Soldier of Fortune, 2nd Reality, Alliance, X-tra energy, Jackal,
-             // Sanxion, Ultravox, Hard Track, Swing, Myth, LN3, etc.)
+#define DEFAULT_SAMPLERATE 22050.0
+// 11025.0  //(Soldier of Fortune, 2nd Reality, Alliance, X-tra energy, Jackal,
+// 16000.0 //(Soldier of Fortune, 2nd Reality, Alliance, X-tra energy, Jackal,
+// Sanxion, Ultravox, Hard Track, Swing, Myth, LN3, etc.)
 #define CLOCK_RATIO_DEFAULT \
     C64_PAL_CPUCLK / DEFAULT_SAMPLERATE  //(50.0567520: lowest framerate where Sanxion is fine,
                                          // and highest where Myth is almost fine)
@@ -39,13 +40,14 @@ typedef void (*AudioCallback)(int16_t* samples, size_t num_samples);
 #define FILTER_DISTORTION_6581 \
     0.0016  // the bigger the value the more of resistance-modulation (filter
             // distortion) is applied for 6581 cutoff-control
-// #define SAMPLES_PER_SCAN_LINE DEFAULT_SAMPLERATE / PAL_FRAMERATE / LINES_PER_FRAME
-// 63 Cycles per scanline (PAL)
 #define SAMPLES_PER_SCAN_LINE 63 / (CLOCK_RATIO_DEFAULT)
 
 #define SAMPLE_BUFFER_SIZE 32
 #define US_PER_SAMPLE      (1000000.0 / DEFAULT_SAMPLERATE);
 #define OUTPUT_SCALEDOWN   (SID_CHANNEL_AMOUNT * 16 + 26);
+#define CUTOFF_RATIO_8580  (-2 * 3.14 * (12500.0 / 2048) / DEFAULT_SAMPLERATE)
+#define CLOCK_RATIO        (C64_PAL_CPUCLK / DEFAULT_SAMPLERATE)
+
 // //raw output divided by this after multiplied by main volume, this also
 // compensates for filter-resonance emphasis to avoid distotion
 
@@ -70,41 +72,28 @@ enum {
 class SID {
    private:
     // SID-emulation variables:
-    int           SIDamount = 1, SID_model[3] = {8580, 8580, 8580}, requested_SID_model = -1, sampleratio;
-    const uint8_t FILTSW[9] = {1, 2, 4, 1, 2, 4, 1, 2, 4};
+    int32_t       SIDamount           = 1;
+    int32_t       SID_model[3]        = {DEFAULT_SIDMODEL, DEFAULT_SIDMODEL, DEFAULT_SIDMODEL};
+    int32_t       requested_SID_model = -1;
     uint8_t       ADSRstate[9], expcnt[9], prevSR[9], sourceMSBrise[9];
-    short int     envcnt[9];
-    unsigned int  prevwfout[9], prevwavdata[9], sourceMSB[3], noise_LFSR[9];
-    int           phaseaccu[9], prevaccu[9], prevlowpass[3], prevbandpass[3];
-    ;
-    float ratecnt[9], cutoff_ratio_8580, cutoff_steepness_6581,
-        cap_6581_reciprocal;  //, cutoff_ratio_6581, cutoff_bottom_6581, cutoff_top_6581;
-    float clock_ratio = CLOCK_RATIO_DEFAULT;
+    int16_t       envcnt[9];
+    uint32_t      prevwfout[9], prevwavdata[9], sourceMSB[3], noise_LFSR[9];
+    int32_t       phaseaccu[9], prevaccu[9], prevlowpass[3], prevbandpass[3];
+    float         ratecnt[9], cutoff_steepness_6581, cap_6581_reciprocal;
+    float         clock_ratio = CLOCK_RATIO_DEFAULT;
+    uint8_t* memory;
+    float   scan_line_sync = 0.0;
+    AudioCallback audio_callback = nullptr;
 
-    // int          SIDamount = 1, SID_model[3] = {8580, 8580, 8580}, requested_SID_model = -1, sampleratio;
-    uint8_t *    filedata, *memory, timermode[0x20], SIDtitle[0x20], SIDauthor[0x20], SIDinfo[0x20];
-    int          subtune = 0, tunelength = -1, default_tunelength = 300, minutes = -1, seconds = -1;
-    unsigned int initaddr, playaddr, playaddf, SID_address[3] = {0xD400, 0, 0};
-    int          samplerate = DEFAULT_SAMPLERATE;
-
-    unsigned int combinedWF(uint8_t num, uint8_t channel, uint32_t* wfarray, int index, char differ6581, uint8_t freqh);
-    // uint32_t combinedWF(unsigned char num, unsigned char channel, unsigned int* wfarray, int index,
-    //                     unsigned char differ6581, uint8_t freqh);
-    void         createCombinedWF(uint32_t* wfarray, float bitmul, float bitstrength, float treshold);
-    float        scan_line_sync = 0.0;
-
-    // sample output buffer
-    int16_t  sample_buffer[SAMPLE_BUFFER_SIZE];
-    uint16_t sample_buffer_pos = 0;
+    int32_t combinedWF(uint8_t num, uint8_t channel, const uint32_t* wfarray, int index, char differ6581,
+                       uint8_t freqh);
 
     // callback function to send out audio sample data
     // consists of a pointer and a number of samples to send
-    AudioCallback audio_callback = nullptr;
-    // int32_t OUTPUT_SCALEDOWN =  SID_CHANNEL_AMOUNT * 16 + 26;
 
    public:
     SID();
-    void cSID_init(int32_t samplerate = DEFAULT_SAMPLERATE);
+    void cSID_init();
     void init(uint8_t* memory, AudioCallback sample_out_callback = nullptr, int sid_model = 8580);
     void raster_line();
     int  cycle(unsigned char num, uint32_t baseaddr);

@@ -18,16 +18,17 @@ esp_err_t I2S::init()
 {
     // TODO: Move to a better place.
     ESP_LOGI(TAG, "Initializing BSP audio interface");
+    bsp_audio_set_volume(0);
     esp_err_t res = bsp_audio_initialize();
     if (res != ESP_OK) {
         ESP_LOGE(TAG, "Initializing audio failed");
         return res;
     }
 
-    bsp_audio_set_volume(80);
     // TODO: Add enable to menu
     ESP_LOGI(TAG, "Enable aplifier for audio output");
-    bsp_audio_set_amplifier(false);
+    bsp_audio_set_volume(80);
+    bsp_audio_set_amplifier(true);
 
     ESP_LOGI(TAG, "Initializing I2S audio interface");
     // I2S audio

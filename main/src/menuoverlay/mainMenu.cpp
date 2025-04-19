@@ -1,27 +1,36 @@
 #include "MainMenu.hpp"
 #include "C64Emu.hpp"
+#include "LoadMenu.hpp"
+#include "MenuDataStore.hpp"
+#include "esp_log.h"
 #include "menuoverlay/MenuController.hpp"
 #include "menuoverlay/MenuDataStore.hpp"
 #include "menuoverlay/MenuTypes.hpp"
-#include "LoadMenu.hpp"
-#include "MenuDataStore.hpp"
 
-MainMenu::MainMenu(std::string title, MenuBaseClass* previousMenu, MenuController* menuController) : MenuBaseClass(title, previousMenu, menuController) {
+extern "C" {
+#include "bsp/audio.h"
+}
+
+MainMenu::MainMenu(std::string title, MenuBaseClass* previousMenu, MenuController* menuController)
+    : MenuBaseClass(title, previousMenu, menuController)
+{
     // Nothing else to do here
     c64emu = menuController->getC64Emu();
 }
 
 MainMenu::~MainMenu() {};
 
-void MainMenu::resetC64(MenuItem* item) {
+void MainMenu::resetC64(MenuItem* item)
+{
     ExternalCmds* ext = &c64emu->externalCmds;
 
     ext->reset();
 }
 
-bool MainMenu::init() {
+bool MainMenu::init()
+{
     int id_count = 1;
-    loadMenu = new LoadMenu("Load PRG", this, menuController); 
+    loadMenu     = new LoadMenu("Load PRG", this, menuController);
     loadMenu->init();
 
     MenuDataStore* menuDataStore = MenuDataStore::getInstance();
@@ -41,13 +50,28 @@ bool MainMenu::init() {
     items.push_back(*sep1);
 
     // Add menu items here
-    MenuItem* joystick_emu = new MenuItem();
-    joystick_emu->id       = id_count++;
-    joystick_emu->title    = "keyboard joystick: ";
-    joystick_emu->type     = MenuItemType::TOGGLE;
+    MenuItem* joystick_emu   = new MenuItem();
+    joystick_emu->id         = id_count++;
+    joystick_emu->title      = "keyboard joystick: ";
+    joystick_emu->type       = MenuItemType::TOGGLE;
     joystick_emu->value_name = "kb_joystick_emu";
     menuDataStore->set("kb_joystick_emu", false);
     items.push_back(*joystick_emu);
+
+    // Speaker audio enable/disable
+    MenuItem* speaker_emu   = new MenuItem();
+    speaker_emu->id         = id_count++;
+    speaker_emu->title      = "speaker audio: ";
+    speaker_emu->type       = MenuItemType::TOGGLE;
+    speaker_emu->value_name = "speaker_ena";
+    menuDataStore->set("speaker_ena", true);
+    speaker_emu->action     = [](MenuItem* item) {
+        MenuDataStore* menuDataStore = MenuDataStore::getInstance();
+        bool enabled = menuDataStore->getBool("speaker_ena", true);
+        ESP_LOGI("APM", "Toggling speaker audio: %s", enabled? "enabled" : "disabled");
+        bsp_audio_set_amplifier(enabled);
+    };
+    items.push_back(*speaker_emu);
 
     // Separator
     MenuItem* sep3 = new MenuItem();

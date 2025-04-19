@@ -23,6 +23,7 @@
 #include "freertos/idf_additions.h"
 #include "konsoolled.hpp"
 #include "menuoverlay/MenuController.hpp"
+#include "menuoverlay/MenuDataStore.hpp"
 
 class C64Emu;
 class ExternalCmds;
@@ -33,15 +34,17 @@ class KonsoolKB {
     KonsoleLED*     konsoleled;
     DisplayDriver*  display;
     MenuController* menuController;
-    uint8_t         sentdc01;
-    uint8_t         sentdc00;
+    MenuDataStore*  menuDataStore = MenuDataStore::getInstance();
+
+    uint8_t sentdc01;
+    uint8_t sentdc00;
 
     QueueHandle_t input_event_queue;
 
     uint16_t key_hold;
 
-    bool menu_overlay_active = false;
-    uint8_t         audio_volume = 80;    
+    bool    menu_overlay_active = false;
+    uint8_t audio_volume        = 80;
 
    public:
     bool     deviceConnected;

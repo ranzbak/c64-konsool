@@ -17,8 +17,8 @@
 #include "menuoverlay/MenuTypes.hpp"
 extern "C" {
 #include <esp_log.h>
-#include "bsp/input.h"
 #include "bsp/audio.h"
+#include "bsp/input.h"
 }
 #include <cstdint>
 #include <cstring>
@@ -27,6 +27,7 @@ extern "C" {
 #include "ExternalCmds.hpp"
 #include "Joystick.hpp"
 #include "KonsoolKB.hpp"
+#include "kbmatrix.hpp"
 
 static const char* TAG = "KonsoolKB";
 
@@ -41,13 +42,15 @@ static const uint8_t VIRTUALJOYSTICKUP_DEACTIVATED    = 0x84;
 static const uint8_t VIRTUALJOYSTICKDOWN_ACTIVATED    = 0x08;
 static const uint8_t VIRTUALJOYSTICKDOWN_DEACTIVATED  = 0x88;
 
-KonsoolKB::KonsoolKB() {
+KonsoolKB::KonsoolKB()
+{
     buffer = nullptr;
 }
 
 QueueHandle_t input_event_queue = NULL;
 
-void KonsoolKB::init(C64Emu* c64emu) {
+void KonsoolKB::init(C64Emu* c64emu)
+{
     if (buffer != nullptr) {
         // init method must be called only once
         return;
@@ -71,403 +74,177 @@ void KonsoolKB::init(C64Emu* c64emu) {
     // init div
     virtjoystickvalue = 0xff;
     detectreleasekey  = false;
-
 }
 
-void KonsoolKB::handleKeyPress() {
+void KonsoolKB::handleKeyPress()
+{
     bsp_input_event_t event;
     uint8_t           key_code;
+    static bool       keys_pressed[128];
+    static uint16_t   repeat_delay       = 0;
+
+    // Reset C64 key matrix
+    sentdc00 = 0xff;
+    sentdc01 = 0xff;
+
     if (this->display == nullptr) {
         this->display = c64emu->cpu.vic->getDriver();
     }
     // Sync menu state with menu draw routine
     display->enableMenuOverlay(menuController->getVisible());
 
-
-    // shiftctrlcode = second byte bit 0 -> left shift, bit 1 -> ctrl, bit 2 -> commodore, bit 7 -> external command
     if (xQueueReceive(input_event_queue, &event, pdMS_TO_TICKS(10)) == pdTRUE) {
-        shiftctrlcode  = 0;
-        keypresseddown = NUMOFCYCLES_KEYPRESSEDDOWN;
+        // use Keycodes to keep track of pressed keys
+        key_code = event.args_scancode.scancode;
         switch (event.type) {
-            case INPUT_EVENT_TYPE_KEYBOARD: {
-                // ESP_LOGI(TAG, "Keyboard event %c (%02x) %s", event.args_keyboard.ascii,
-                //  (uint8_t)event.args_keyboard.ascii, event.args_keyboard.utf8);
-                this->keypresseddown = true;
-                this->key_hold       = true;
-
-                key_code = event.args_keyboard.ascii;
-
-                if (key_code >= 'A' && key_code <= 'Z') {
-                    key_code      += 'a' - 'A';
-                    shiftctrlcode  = 1;
+            case INPUT_EVENT_TYPE_SCANCODE: {
+                keys_pressed[key_code & 0x7f] = (key_code & 0x80) ? false : true;
+                if (key_code == 0x40) {
+                    menuController->toggle();
                 }
-
-                // Translation table https://sta.c64.org/cbm64kbdlay.html
-                switch (key_code) {
-                    case 'a':
-                        sentdc00 = 0xfd;
-                        sentdc01 = 0xfb;
-                        break;
-                    case 'b':
-                        sentdc00 = 0xf7;
-                        sentdc01 = 0xef;
-                        break;
-                    case 'c':
-                        sentdc00 = 0xfb;
-                        sentdc01 = 0xef;
-                        break;
-                    case 'd':
-                        sentdc00 = 0xfb;
-                        sentdc01 = 0xfb;
-                        break;
-                    case 'e':
-                        sentdc00 = 0xfd;
-                        sentdc01 = 0xbf;
-                        break;
-                    case 'f':
-                        sentdc00 = 0xfb;
-                        sentdc01 = 0xdf;
-                        break;
-                    case 'g':
-                        sentdc00 = 0xf7;
-                        sentdc01 = 0xfb;
-                        break;
-                    case 'h':
-                        sentdc00 = 0xf7;
-                        sentdc01 = 0xdf;
-                        break;
-                    case 'i':
-                        sentdc00 = 0xef;
-                        sentdc01 = 0xfd;
-                        break;
-                    case 'j':
-                        sentdc00 = 0xef;
-                        sentdc01 = 0xfb;
-                        break;
-                    case 'k':
-                        sentdc00 = 0xef;
-                        sentdc01 = 0xdf;
-                        break;
-                    case 'l':
-                        sentdc00 = 0xdf;
-                        sentdc01 = 0xfb;
-                        break;
-                    case 'm':
-                        sentdc00 = 0xef;
-                        sentdc01 = 0xef;
-                        break;
-                    case 'n':
-                        sentdc00 = 0xef;
-                        sentdc01 = 0x7f;
-                        break;
-                    case 'o':
-                        sentdc00 = 0xef;
-                        sentdc01 = 0xbf;
-                        break;
-                    case 'p':
-                        sentdc00 = 0xdf;
-                        sentdc01 = 0xfd;
-                        break;
-                    case 'q':
-                        sentdc00 = 0x7f;
-                        sentdc01 = 0xbf;
-                        break;
-                    case 'r':
-                        sentdc00 = 0xfb;
-                        sentdc01 = 0xfd;
-                        break;
-                    case 's':
-                        sentdc00 = 0xfd;
-                        sentdc01 = 0xdf;
-                        break;
-                    case 't':
-                        sentdc00 = 0xfb;
-                        sentdc01 = 0xbf;
-                        break;
-                    case 'u':
-                        sentdc00 = 0xf7;
-                        sentdc01 = 0xbf;
-                        break;
-                    case 'v':
-                        sentdc00 = 0xf7;
-                        sentdc01 = 0x7f;
-                        break;
-                    case 'w':
-                        sentdc00 = 0xfd;
-                        sentdc01 = 0xfd;
-                        break;
-                    case 'x':
-                        sentdc00 = 0xfb;
-                        sentdc01 = 0x7f;
-                        break;
-                    case 'y':
-                        sentdc00 = 0xf7;
-                        sentdc01 = 0xfd;
-                        break;
-                    case 'z':
-                        sentdc00 = 0xfd;
-                        sentdc01 = 0xef;
-                        break;
-                    case '0':
-                        sentdc00 = 0xef;
-                        sentdc01 = 0xf7;
-                        break;
-                    case '!':
-                        shiftctrlcode |= 0x01;
-                    case '1':
-                        sentdc00 = 0x7f;
-                        sentdc01 = 0xfe;
-                        break;
-                    case '"':
-                        shiftctrlcode |= 0x01;
-                    case '2':
-                        sentdc00 = 0x7f;
-                        sentdc01 = 0xf7;
-                        break;
-                    case '#':
-                        shiftctrlcode |= 0x01;
-                    case '3':
-                        sentdc00 = 0xfd;
-                        sentdc01 = 0xfe;
-                        break;
-                    case '$':
-                        shiftctrlcode |= 0x01;
-                    case '4':
-                        sentdc00 = 0xfd;
-                        sentdc01 = 0xf7;
-                        break;
-                    case '%':
-                        shiftctrlcode |= 0x01;
-                    case '5':
-                        sentdc00 = 0xfb;
-                        sentdc01 = 0xfe;
-                        break;
-                    case '&':
-                        shiftctrlcode |= 0x01;
-                    case '6':
-                        sentdc00 = 0xfb;
-                        sentdc01 = 0xf7;
-                        break;
-                    case '`':
-                        shiftctrlcode |= 0x01;
-                    case '7':
-                        sentdc00 = 0xf7;
-                        sentdc01 = 0xfe;
-                        break;
-                    case '(':
-                        shiftctrlcode |= 0x01;
-                    case '8':
-                        sentdc00 = 0xf7;
-                        sentdc01 = 0xf7;
-                        break;
-                    case ')':
-                        shiftctrlcode |= 0x01;
-                    case '9':
-                        sentdc00 = 0xef;
-                        sentdc01 = 0xfe;
-                        break;
-                    case ' ':
-                        sentdc00 = 0x7f;
-                        sentdc01 = 0xef;
-                        break;
-                    case '.':
-                        sentdc00 = 0xdf;
-                        sentdc01 = 0xef;
-                        break;
-                    case '-':
-                        sentdc00 = 0xdf;
-                        sentdc01 = 0xf7;
-                        break;
-                    case '+':
-                        sentdc00 = 0xdf;
-                        sentdc01 = 0xfe;
-                        break;
-                    case '=':
-                        sentdc00 = 0xbf;
-                        sentdc01 = 0xdf;
-                        break;
-                    case ',':
-                        sentdc00 = 0xdf;
-                        sentdc01 = 0x7f;
-                        break;
-                    case '*':
-                        sentdc00 = 0xbf;
-                        sentdc01 = 0xfd;
-                        break;
-                    case '/':
-                        sentdc00 = 0xbf;
-                        sentdc01 = 0x7f;
-                        break;
-                    case ';':
-                        sentdc00 = 0xbf;
-                        sentdc01 = 0xfb;
-                        break;
-                    case ':':
-                        sentdc00 = 0xdf;
-                        sentdc01 = 0xdf;
-                        break;
-                    case '@':
-                        sentdc00 = 0xdf;
-                        sentdc01 = 0xbf;
-                        break;
-                    default:
-                        sentdc00 = 0xff;
-                        sentdc01 = 0xff;
-                        break;
-                }
-                // sentdc00             = event.args_keyboard.ascii;
-                // sentdc01             = event.args_keyboard.modifiers;
-                konsoleled->set_led_color(0, 0xff00ff00);
-                konsoleled->show_led_colors();
-                break;
-            }
-            case INPUT_EVENT_TYPE_NAVIGATION: {
-                konsoleled->set_led_color(0, 0xffff0000);
-                konsoleled->show_led_colors();
-                if (event.args_navigation.state == false) {
-                    break;
-                }
-
-                switch (event.args_navigation.key) {
-                    case BSP_INPUT_NAVIGATION_KEY_BACKSPACE:
-                        sentdc00 = 0xfe;
-                        sentdc01 = 0xfe;
-                        break;
-                    case BSP_INPUT_NAVIGATION_KEY_ESC:
-                        if (menuController->getVisible()) {
-                            menuController->handleInput(MENU_OVERLAY_INPUT_TYPE_LAST);
-                        }
-                        break;
-                    case BSP_INPUT_NAVIGATION_KEY_RETURN:
-                        if (menuController->getVisible()) {
-                            menuController->handleInput(MENU_OVERLAY_INPUT_TYPE_SELECT);
-                        } else {
-                            sentdc00 = 0xfe;
-                            sentdc01 = 0xfd;
-                        }
-                        break;
-                    case BSP_INPUT_NAVIGATION_KEY_UP:
-                        if (menuController->getVisible()) {
-                            menuController->handleInput(MENU_OVERLAY_INPUT_TYPE_UP);
-                        } else {
-                            sentdc00       = 0xfe;
-                            sentdc01       = 0x7f;
-                            shiftctrlcode |= 1;
-                        }
-                        break;
-                    case BSP_INPUT_NAVIGATION_KEY_DOWN:
-                        if (menuController->getVisible()) {
-                            menuController->handleInput(MENU_OVERLAY_INPUT_TYPE_DOWN);
-                        } else {
-                            sentdc00 = 0xfe;
-                            sentdc01 = 0x7f;
-                        }
-                        break;
-                    case BSP_INPUT_NAVIGATION_KEY_LEFT:
-                        sentdc00       = 0xfe;
-                        sentdc01       = 0xfb;
-                        shiftctrlcode |= 1;
-                        break;
-                    case BSP_INPUT_NAVIGATION_KEY_RIGHT:
-                        sentdc00 = 0xfe;
-                        sentdc01 = 0xfb;
-                        break;
-                    case BSP_INPUT_NAVIGATION_KEY_F1:
-                        sentdc00 = 0xfe;
-                        sentdc01 = 0xef;
-                        break;
-                    case BSP_INPUT_NAVIGATION_KEY_F2:
-                        sentdc00       = 0xfe;
-                        sentdc01       = 0xef;
-                        shiftctrlcode |= 1;
-                        break;
-                    case BSP_INPUT_NAVIGATION_KEY_F3:
-                        sentdc00 = 0xfe;
-                        sentdc01 = 0xdf;
-                        break;
-                    case BSP_INPUT_NAVIGATION_KEY_F4:
-                        sentdc00       = 0xfe;
-                        sentdc01       = 0xdf;
-                        shiftctrlcode |= 1;
-                        break;
-                    case BSP_INPUT_NAVIGATION_KEY_F5:
-                        sentdc00 = 0xfe;
-                        sentdc01 = 0xbf;
-                        break;
-                    case BSP_INPUT_NAVIGATION_KEY_VOLUME_DOWN:
-                        if (audio_volume > 0) {
-                            audio_volume -= 5;
-                        bsp_audio_set_volume(audio_volume);
-                        };
-                        break;
-                    case BSP_INPUT_NAVIGATION_KEY_VOLUME_UP:
-                        if (audio_volume < 100) {
-                            audio_volume += 5;
-                        bsp_audio_set_volume(audio_volume);
-                        };
-                        break;
-
-                    // case BSP_INPUT_NAVIGATION_KEY_F6:
-                    //     sentdc00 = 0xfe;
-                    //     sentdc01 = 0xbf;
-                    //     shiftctrlcode |= 1;
-                    //     break;
-                    case BSP_INPUT_NAVIGATION_KEY_F6: {
-                        if (event.args_navigation.state == true) {
-                            menuController->toggle();
-                            display->enableMenuOverlay(menuController->getVisible());
-                        }
-                        // if (event.args_keyboard.modifiers & BSP_INPUT_MODIFIER_SHIFT_L) {
-                        //     uint8_t cmd = 20; // RESET
-                        //     c64emu->externalCmds.executeExternalCmd(&cmd);
-                        // }
-                        // if (event.args_keyboard.modifiers) {
-                        //     uint8_t cmd = 11; // LOAD
-                        //     c64emu->externalCmds.executeExternalCmd(&cmd);
-                        // }
-                        break;
-                    }
-                    default:
-                        sentdc00 = 0xff;
-                        sentdc01 = 0xff;
-                        break;
-                }
-                break;
-            }
-            case INPUT_EVENT_TYPE_ACTION: {
-                konsoleled->set_led_color(0, 0xff0000ff);
-                konsoleled->show_led_colors();
                 break;
             }
             default:
                 break;
         }
-        // Handle modifier keys
-        // if (event.args_keyboard.modifiers & BSP_INPUT_MODIFIER_SHIFT_L) {
-        //     shiftctrlcode = 1;
-        // }
-        if (event.args_keyboard.modifiers & BSP_INPUT_MODIFIER_CTRL) {
+    }
+
+    // Handle C64 keyboard matrix based on pressed keys
+    if (menuController->getVisible()) {
+        if (repeat_delay < 2) {
+            repeat_delay++;
+            return;
+        }
+        if (keys_pressed[0x48]) {  // UP key code
+            ESP_LOGI(TAG, "Handling UP key press");
+            menuController->handleInput(MENU_OVERLAY_INPUT_TYPE_UP);
+            repeat_delay = 0;
+        } else if (keys_pressed[0x50]) {  // DOWN key code
+            ESP_LOGI(TAG, "Handling DOWN key press");
+            menuController->handleInput(MENU_OVERLAY_INPUT_TYPE_DOWN);
+            repeat_delay = 0;
+        } else if (keys_pressed[0x4b]) {  // LEFT key code
+            ESP_LOGI(TAG, "Handling LEFT key press");
+            menuController->handleInput(MENU_OVERLAY_INPUT_TYPE_LEFT);
+            repeat_delay = 0;
+        } else if (keys_pressed[0x4d]) {  // RIGHT key code
+            ESP_LOGI(TAG, "Handling RIGHT key press");
+            menuController->handleInput(MENU_OVERLAY_INPUT_TYPE_RIGHT);
+            repeat_delay = 0;
+        } else if (keys_pressed[0x01]) {  // ESC key code
+            ESP_LOGI(TAG, "Handling ESC key press");
+            menuController->handleInput(MENU_OVERLAY_INPUT_TYPE_LAST);
+            repeat_delay = 0;
+        } else if (keys_pressed[0x1c]) {  // ENTER key code
+            ESP_LOGI(TAG, "Handling ENTER key press");
+            menuController->handleInput(MENU_OVERLAY_INPUT_TYPE_SELECT);
+            repeat_delay = 0;
+        }
+    } else if (menuDataStore->getBool("kb_joystick_emu")) {
+        // TODO: Handle joystick input
+        virtjoystickvalue = 0xff;
+        key_code = event.args_scancode.scancode;
+        // Allow UP, DOWN, LEFT, RIGHT, space for fire button
+        if (key_code == 0x3f) {  // Switch between joystick port 1 & 2
+            int cur_port = menuDataStore->getInt("kb_joystick_port", 1);
+            menuDataStore->set("kb_joystick_port", cur_port == 1 ? 2 : 1);
+            // TODO: Remove me later
+            cur_port = menuDataStore->getInt("kb_joystick_port", 1);
+            ESP_LOGI(TAG, "Switched to joystick port %d", cur_port);
+        }
+        if (keys_pressed[0x48]) {  // UP key code
+            virtjoystickvalue = ~(1 << Joystick::C64JOYUP);
+        }
+        if (keys_pressed[0x50]) {  // DOWN key code
+            virtjoystickvalue &= ~(1 << Joystick::C64JOYDOWN);
+        }
+        if (keys_pressed[0x4b]) {  // LEFT key code
+            virtjoystickvalue &= ~(1 << Joystick::C64JOYLEFT);
+        }
+        if (keys_pressed[0x4d]) {  // RIGHT key code
+            virtjoystickvalue &= ~(1 << Joystick::C64JOYRIGHT);
+        }
+        if (keys_pressed[0x2a] || keys_pressed[0x1d]) {  // SHIFT key code
+            virtjoystickvalue &= ~(1 << Joystick::C64JOYFIRE);
+        }
+
+    } else {
+        shiftctrlcode      = 0;
+
+        for (int i = 0; i < 128; i++) {
+            // shiftctrlcode = second byte bit 0 -> left shift, bit 1 -> ctrl, bit 2 -> commodore, bit 7 -> external
+            // command
+            if (i == 0x42 || i == 0x2a || i == 0x1d || i == 0x5d) {
+                continue;
+            }
+            if (keys_pressed[i]) {
+                // Translate C64 keyboard matrix to KonsoleLED layout
+                // or it with the previous values
+                KbMatrixEntry ent = kb_matrix[i];
+                sentdc00          = sentdc00 & ent.sentdc00;
+                sentdc01          = sentdc01 & ent.sentdc01;
+            }
+        }
+        if (keys_pressed[0x42] || keys_pressed[0x2a]) {
+            shiftctrlcode = 1;
+        }
+        if (keys_pressed[0x1d]) {
             shiftctrlcode |= 2;
         }
-        if (event.args_keyboard.modifiers & BSP_INPUT_NAVIGATION_KEY_SUPER) {
+        if (keys_pressed[0x5d]) {
             shiftctrlcode |= 4;
         }
-    } else {
-        if (keypresseddowncnt == 0) {
-            this->keypresseddown = false;
-            this->key_hold       = false;
-            this->shiftctrlcode  = 0;
-            sentdc00             = 0xff;
-            sentdc01             = 0xff;
-            konsoleled->set_led_color(0, 0xff000000);
+    }
+
+    switch (event.type) {
+        case INPUT_EVENT_TYPE_NAVIGATION: {
+            konsoleled->set_led_color(0, 0xffff0000);
             konsoleled->show_led_colors();
-        } else {
-            keypresseddowncnt--;
+            if (event.args_navigation.state == false) {
+                break;
+            }
+
+            switch (event.args_navigation.key) {
+                break;
+                case BSP_INPUT_NAVIGATION_KEY_VOLUME_DOWN:
+                    if (audio_volume > 0) {
+                        audio_volume -= 5;
+                        bsp_audio_set_volume(audio_volume);
+                    };
+                    break;
+                case BSP_INPUT_NAVIGATION_KEY_VOLUME_UP:
+                    if (audio_volume < 100) {
+                        audio_volume += 5;
+                        bsp_audio_set_volume(audio_volume);
+                    };
+                    break;
+                default:
+                    break;
+            }
+            break;
         }
+        case INPUT_EVENT_TYPE_ACTION: {
+            konsoleled->set_led_color(0, 0xff0000ff);
+            konsoleled->show_led_colors();
+            break;
+        }
+        default:
+            break;
+    }
+    // Handle modifier keys
+    // if (event.args_keyboard.modifiers & BSP_INPUT_MODIFIER_SHIFT_L) {
+    //     shiftctrlcode = 1;
+    // }
+    if (event.args_keyboard.modifiers & BSP_INPUT_MODIFIER_CTRL) {
+        shiftctrlcode |= 2;
+    }
+    if (event.args_keyboard.modifiers & BSP_INPUT_NAVIGATION_KEY_SUPER) {
+        shiftctrlcode |= 4;
     }
 }
 
-uint8_t KonsoolKB::getdc01(uint8_t querydc00, bool xchgports) {
+uint8_t KonsoolKB::getdc01(uint8_t querydc00, bool xchgports)
+{
     uint8_t kbcode1;
     uint8_t kbcode2;
     if (xchgports) {
@@ -527,11 +304,13 @@ uint8_t KonsoolKB::getdc01(uint8_t querydc00, bool xchgports) {
     }
 }
 
-uint8_t KonsoolKB::getKBJoyValue(bool port2) {
+uint8_t KonsoolKB::getKBJoyValue(bool port2)
+{
     return virtjoystickvalue;
 }
 
-void KonsoolKB::setKbcodes(uint8_t sentdc01, uint8_t sentdc00) {
+void KonsoolKB::setKbcodes(uint8_t sentdc01, uint8_t sentdc00)
+{
     this->sentdc01 = sentdc01;
     this->sentdc00 = sentdc00;
 }

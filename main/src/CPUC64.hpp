@@ -24,6 +24,7 @@
 #include "VIC.hpp"
 #include <cstdint>
 #include <mutex>
+#include "menuoverlay/MenuDataStore.hpp"
 
 class C64Emu;
 
@@ -35,6 +36,7 @@ private:
   uint8_t *kernalrom;
   uint8_t *charrom;
   Joystick joystick;
+  MenuDataStore* menuDataStore = MenuDataStore::getInstance();
 
   uint8_t sidreg[0x100];
 

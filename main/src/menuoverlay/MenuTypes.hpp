@@ -32,11 +32,11 @@ enum class MenuItemType {
 struct MenuItem {
     uint16_t                       id;
     MenuItemType                   type = MenuItemType::SPACER;
-    std::string                    title = "------";
+    std::string                    title = "";
     std::function<void(MenuItem*)> action = nullptr;
     std::function<void()>          additionalFunction;
     MenuBaseClass*                 submenu = nullptr;
+    std::string                    value_name = "";
     bool                           disabled = false;
-    bool                           checked = false;
     void*                          content = nullptr;
 };

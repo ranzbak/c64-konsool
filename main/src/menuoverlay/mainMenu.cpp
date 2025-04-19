@@ -1,8 +1,10 @@
 #include "MainMenu.hpp"
 #include "C64Emu.hpp"
 #include "menuoverlay/MenuController.hpp"
+#include "menuoverlay/MenuDataStore.hpp"
 #include "menuoverlay/MenuTypes.hpp"
 #include "LoadMenu.hpp"
+#include "MenuDataStore.hpp"
 
 MainMenu::MainMenu(std::string title, MenuBaseClass* previousMenu, MenuController* menuController) : MenuBaseClass(title, previousMenu, menuController) {
     // Nothing else to do here
@@ -22,6 +24,8 @@ bool MainMenu::init() {
     loadMenu = new LoadMenu("Load PRG", this, menuController); 
     loadMenu->init();
 
+    MenuDataStore* menuDataStore = MenuDataStore::getInstance();
+
     // Setup the menu entries
     MenuItem* load_prg = new MenuItem();
     load_prg->id       = id_count++;
@@ -39,9 +43,10 @@ bool MainMenu::init() {
     // Add menu items here
     MenuItem* joystick_emu = new MenuItem();
     joystick_emu->id       = id_count++;
-    joystick_emu->title    = "keyboad joystick: ";
+    joystick_emu->title    = "keyboard joystick: ";
     joystick_emu->type     = MenuItemType::TOGGLE;
-    joystick_emu->checked = false;
+    joystick_emu->value_name = "kb_joystick_emu";
+    menuDataStore->set("kb_joystick_emu", false);
     items.push_back(*joystick_emu);
 
     // Separator

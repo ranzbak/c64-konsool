@@ -5,10 +5,13 @@
 #include <vector>
 #include "MenuTypes.hpp"
 #include "menuoverlay/MenuController.hpp"
+#include "MenuDataStore.hpp"
 
 class MenuBaseClass {
    private:
+    
     MenuBaseClass* parentMenu;
+    MenuDataStore* const menuDataStore = MenuDataStore::getInstance();
     size_t         selectedItemIndex = 0;
 
    protected:
@@ -18,6 +21,9 @@ class MenuBaseClass {
 
    public:
     MenuBaseClass(std::string title, MenuBaseClass* previousMenu = nullptr, MenuController* menuController = nullptr);
+
+    // Use for menu list to find menus by name
+    MenuBaseClass* next = nullptr;
 
     virtual ~MenuBaseClass();
 

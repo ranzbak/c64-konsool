@@ -1,6 +1,7 @@
 #pragma once
 
 #include "MenuTypes.hpp"
+#include "menuoverlay/MenuDataStore.hpp"
 #include "pax_types.h"
 
 class C64Emu;
@@ -12,15 +13,19 @@ class MenuController {
     MenuBaseClass* rootMenu;
     MenuBaseClass* currentMenu;
 
+    MenuBaseClass* menusList;
+    const MenuDataStore *menuDataStore = MenuDataStore::getInstance(); 
+
     bool visible = false;
 
     static void drawMenu();
-    pax_buf_t *fb;
+    pax_buf_t*  fb;
 
    public:
     MenuController();
 
-    C64Emu* getC64Emu() const {
+    C64Emu* getC64Emu() const
+    {
         return c64emu;
     }
 
@@ -35,13 +40,14 @@ class MenuController {
     void toggle();
     bool getVisible() const;
 
-    void setCurrentMenu(MenuBaseClass* menu) {
+    void setCurrentMenu(MenuBaseClass* menu)
+    {
         currentMenu = menu;
     }
-    void gotoRootMenu() {
+    void gotoRootMenu()
+    {
         setCurrentMenu(rootMenu);
     }
-
 
     void draw();
 

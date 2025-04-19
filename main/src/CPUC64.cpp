@@ -81,6 +81,7 @@ uint8_t CPUC64::getMem(uint16_t addr) {
         }
         // ** CIA 1 **
         else if (addr <= 0xdcff) {
+            kbjoystickmode = menuDataStore->getInt("kb_joystick_port", 0);
             uint8_t ciaidx = (addr - 0xdc00) % 0x10;
             if (ciaidx == 0x00) {
                 uint8_t ddra  = cia1.ciareg[0x02];
@@ -113,7 +114,6 @@ uint8_t CPUC64::getMem(uint16_t addr) {
                         return 0xef;
                     }
                 }
-                // TODO: Replace with Tanmatsu input
                 if (joystickmode == 1) {
                     // real joystick, but still check for keyboard input
                     input = c64emu->konsoolkb.getdc01(cia1.ciareg[0x00], false);

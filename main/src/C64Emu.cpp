@@ -22,13 +22,13 @@
 #include "ExternalCmds.hpp"
 // #include "HardwareInitializationException.h"
 #include "VIC.hpp"
-#include "driver/timer_types_legacy.h"
+// #include "driver/timer_types_legacy.h"
 // #include "esp_check.h"
 #include "esp_err.h"
-#include "esp_log_level.h"
-#include "esp_rom_gpio.h"
+// #include "esp_log_level.h"
+// #include "esp_rom_gpio.h"
 #include "freertos/idf_additions.h"
-#include "hal/gpio_types.h"
+// #include "hal/gpio_types.h"
 #include "portmacro.h"
 #include "roms/charset.h"
 #include "sid/sid.hpp"
@@ -37,7 +37,7 @@ extern "C" {
 #include <esp_adc/adc_cali_scheme.h>
 #include <esp_adc/adc_oneshot.h>
 #include <esp_log.h>
-#include <inttypes.h>
+// #include <inttypes.h>
 }
 
 static const char* TAG = "C64Emu";
@@ -274,7 +274,7 @@ void C64Emu::setup()
 
     // Interrupt handler for keyboard IO (keyboard)
     xTaskCreatePinnedToCore(handleKeyboardFuncWrapper,  // Keyboard task
-                            "keyboardHandler",           //
+                            "keyboardHandler",          //
                             4096,                       //
                             NULL,                       //
                             0,                          //
@@ -296,7 +296,7 @@ void C64Emu::setup()
     esp_timer_start_periodic(interrupt_timer, Config::INTERRUPTSYSTEMRESOLUTION);  // in microseconds
 
     // TODO: Move to the menu structure
-    perf = true;
+    // perf = true;
 
     const esp_timer_create_args_t profiling_timer_args = {
         .callback = &interruptProfilingBatteryCheckFuncWrapper, .arg = NULL, .name = "profiling_timer"};

@@ -2,11 +2,13 @@
 #include "MenuBaseClass.hpp"
 #include "esp_log.h"
 #include "menuoverlay/MenuController.hpp"
+#include "menuoverlay/MenuDataStore.hpp"
 #include "menuoverlay/MenuTypes.hpp"
 
 const static char* TAG = "MenuBaseClass";
 
-MenuBaseClass::MenuBaseClass(std::string title, MenuBaseClass* previousMenu, MenuController* menuController) {
+MenuBaseClass::MenuBaseClass(std::string title, MenuBaseClass* previousMenu, MenuController* menuController)
+{
     this->title          = title;
     this->parentMenu     = previousMenu;
     this->menuController = menuController;
@@ -14,7 +16,8 @@ MenuBaseClass::MenuBaseClass(std::string title, MenuBaseClass* previousMenu, Men
 
 MenuBaseClass::~MenuBaseClass() = default;
 
-bool MenuBaseClass::init() {
+bool MenuBaseClass::init()
+{
     // Implement logic to initialize the menu items
     return true;
 };
@@ -23,23 +26,28 @@ void MenuBaseClass::update() {
     // Implement logic to update the menu items based on user input
 };
 
-std::string MenuBaseClass::getTitle() const {
+std::string MenuBaseClass::getTitle() const
+{
     return title;
 };
 
-MenuBaseClass* MenuBaseClass::getParentMenu() const {
+MenuBaseClass* MenuBaseClass::getParentMenu() const
+{
     return parentMenu;
 };
 
-std::vector<MenuItem> MenuBaseClass::getItems() const {
+std::vector<MenuItem> MenuBaseClass::getItems() const
+{
     return items;
 };
 
-void MenuBaseClass::navigateBegin() {
+void MenuBaseClass::navigateBegin()
+{
     selectedItemIndex = 0;
 }
 
-void MenuBaseClass::navigateUp() {
+void MenuBaseClass::navigateUp()
+{
     if (selectedItemIndex > 0) {
         selectedItemIndex--;
     } else {
@@ -48,7 +56,8 @@ void MenuBaseClass::navigateUp() {
     // menuController->render();
 }
 
-void MenuBaseClass::navigateDown() {
+void MenuBaseClass::navigateDown()
+{
     if (selectedItemIndex < items.size() - 1) {
         selectedItemIndex++;
     } else {
@@ -57,17 +66,19 @@ void MenuBaseClass::navigateDown() {
     // menuController->render();
 }
 
-size_t MenuBaseClass::getSelectedItemIndex() const {
+size_t MenuBaseClass::getSelectedItemIndex() const
+{
     return selectedItemIndex;
 }
 
-void MenuBaseClass::activateItem(uint16_t id) {
+void MenuBaseClass::activateItem(uint16_t id)
+{
     // Implement logic to activate the selected menu item
     if (id >= items.size()) {
         ESP_LOGI(TAG, "Invalid menu item ID: %d", id);
         return;
     }
-    MenuItem *item = &items[selectedItemIndex];
+    MenuItem* item = &items[selectedItemIndex];
     if (item->disabled) {
         return;
     }
@@ -78,17 +89,21 @@ void MenuBaseClass::activateItem(uint16_t id) {
             break;
         case MenuItemType::SUBMENU:
             // Open submenu
-            ESP_LOGI(TAG, "Opening submenu: %s", item->title.c_str());
+            ESP_LOGD(TAG, "Opening submenu: %s", item->title.c_str());
             menuController->setCurrentMenu(item->submenu);
             break;
-        case MenuItemType::TOGGLE:
-            item->checked = !item->checked;
-            ESP_LOGI(TAG, "Toggling toggle item: %s : %s", item->title.c_str(), item->checked? "yes" : "no" );
+        case MenuItemType::TOGGLE: {
+            // Toggle state
+            bool checked = menuDataStore->getBool(item->value_name, false);
+            menuDataStore->set(item->value_name, !checked);
+            checked = menuDataStore->getBool(item->value_name, false);
+
+            ESP_LOGD(TAG, "Toggling toggle item: %s : %s", item->value_name.c_str(), checked ? "yes" : "no");
             if (item->action != nullptr) {
                 item->action(item);
             }
-            // Toggle state
             break;
+        }
         // Add other types as needed
         default:
             break;

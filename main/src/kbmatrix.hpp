@@ -69,7 +69,7 @@ static const KbMatrixEntry kb_matrix[128] = {
     { 0xfe, 0xef, false},  // 3b : F1
     { 0xfe, 0xdf, false},  // 3c : F2 -> F3
     { 0xfe, 0xbf, false},  // 3d : F3 -> F5
-    { 0xfe, 0x7f, false},  // 3e : F4 -> F7
+    { 0xfe, 0xf7, false},  // 3e : F4 -> F7
     { 0xff, 0xff, false},  // 3f : F5
     { 0xff, 0xff, false},  // 40 : F6
     { 0xff, 0xff, false},  // 41 : F7

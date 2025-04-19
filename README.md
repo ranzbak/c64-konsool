@@ -26,7 +26,9 @@ The following keys are used:
 
 Since the menu structure is still being developed, I'm going to not document more details at this time.
 
-## Loading games
+## Games / Sofware
+
+### Loading prg files
 
 At this time only the loading of **.PRG** files is supported, .d64 files are in the planning.
 
@@ -36,7 +38,28 @@ At this time only the loading of **.PRG** files is supported, .d64 files are in 
 
 - When the C64 screen shows again, type the command 'run' and press enter.
 
-## Prequisites
+### Joystick emulation
+
+The original commodore 64 had two joystick ports namely '1' and '2'.
+Because some games use port one and others two, switching the joystick between ports is needed.
+
+In order to enable the Joystick, the 'keyboard joystick' option in the main menu needs to be set to 'yes'.
+
+Selecting the joystick port is done using the 'F5' or 'blue tri-lobe' key.
+
+Indicators of joystick status and port will be added to the software in the future.
+
+#### Joystick key bindings
+
+| key         | Joystick function |
+| ----------- | ----------------- |
+| Arrow up    | UP                |
+| Arrow down  | DOWN              |
+| Arrow left  | LEFT              |
+| Arrow right | RIGHT             |
+| Left SHIFT  | FIRE button       |
+
+## Perquisites
 
 ### Install the build dependencies
 

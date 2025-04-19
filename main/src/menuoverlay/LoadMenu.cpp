@@ -97,9 +97,9 @@ void LoadMenu::loadPrg(MenuItem* item) {
 void LoadMenu::update() {
     ESP_LOGI(TAG, "Updating load menu");
     if (currentPage != nextPage) {
+        currentPage = nextPage;
         displayMenu();
     }
-    currentPage = nextPage;
 }
 
 bool LoadMenu::init() {

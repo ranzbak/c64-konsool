@@ -13,8 +13,8 @@ class MenuController {
     MenuBaseClass* rootMenu;
     MenuBaseClass* currentMenu;
 
-    MenuBaseClass* menusList;
-    const MenuDataStore *menuDataStore = MenuDataStore::getInstance(); 
+    MenuBaseClass*       menusList;
+    const MenuDataStore* menuDataStore = MenuDataStore::getInstance();
 
     bool visible = false;
 

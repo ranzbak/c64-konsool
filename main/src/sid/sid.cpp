@@ -498,11 +498,7 @@ int32_t SID::combinedWF(uint8_t num, uint8_t channel, const uint32_t* wfarray, i
 {
     static float addf;
     if (freqh == 0) freqh = 1;  // avoid division by zero
-#ifdef NEW_COMBINED_WAVEFORMS
     addf = 0.4 + 0.6 / freqh;
-#else
-    addf = 0.6 + 0.4 / freqh;
-#endif
     if (differ6581 && SID_model[num] == 6581) index &= 0x7FF;
     prevwavdata[channel] = wfarray[index] * addf + prevwavdata[channel] * (1.0 - addf);
     return prevwavdata[channel];

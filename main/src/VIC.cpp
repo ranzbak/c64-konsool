@@ -308,7 +308,7 @@ void VIC::drawStdBitmapModeInt(uint8_t* hiresBitmap, uint8_t* colorMap, uint16_t
 
 void VIC::drawStdBitmapMode(uint8_t* hiresBitmap, uint8_t* colorMap, uint8_t line, int8_t dy, uint8_t dx)
 {
-    // todo: background color is specific for each "tile"
+    // TODO: background color is specific for each "tile"
     shiftDy(line, dy, 0);
     uint16_t lowval     = 0;
     uint16_t highval    = 200 * 320;
@@ -538,7 +538,7 @@ void VIC::drawSprites(uint8_t line)
                 if (vicreg[0x10] & bitval) {
                     x += 256;
                 }
-                uint8_t  ypos     = line - 50;
+                uint8_t  ypos     = line - 0x30;
                 uint16_t dataaddr = ram[screenmemstart + 1016 + nr] * 64;
                 uint8_t* data     = ram + vicmem + dataaddr + ((line - y) / facysize) * 3;
                 uint8_t  col      = vicreg[0x27 + nr] & 0x0f;
@@ -650,8 +650,8 @@ uint8_t VIC::nextRasterline()
         }
     }
     // badline?
-    if (((vicreg[0x11] & 7) == (raster7 & 7)) && (raster7 >= 0x30) && (raster7 <= 0xf7)) {
-        return 40;
+    if (((vicreg[0x11] & 7) == (raster7 & 7)) && (raster7 >= 0x30) && (raster7 <= 0xf7) && (vicreg[0x11] & 16)) {
+        return 40; // Bad line: VIC will steal 40 cycles from CPU
     }
     return 0;
 }
@@ -659,8 +659,8 @@ uint8_t VIC::nextRasterline()
 void IRAM_ATTR VIC::drawRasterline()
 {
     uint16_t line = rasterline;
-    if ((line >= 50) && (line < 250)) {
-        uint8_t dline = line - 50;
+    if ((line >= 0x30) && (line <= 0xf7)) {
+        uint8_t dline = line - 0x30;
         if (screenblank) {
             drawblankline(dline);
             return;
@@ -670,9 +670,14 @@ void IRAM_ATTR VIC::drawRasterline()
         memset(spritedatacoll, false, sizeof(bool) * sizeof(spritedatacoll));
         uint8_t d016   = vicreg[0x16];
         uint8_t deltax = d016 & 7;
-        bool    bmm    = d011 & 32;
-        bool    ecm    = d011 & 64;
-        bool    mcm    = d016 & 16;
+        bool    den    = d011 & 16; // Display enable
+        bool    bmm    = d011 & 32; // Bitmap mode
+        bool    ecm    = d011 & 64; // Extended color mode
+        bool    mcm    = d016 & 16; // Multicolor mode
+        if (!den) {
+            drawblankline(dline);
+            return;
+        }
         if (bmm) {
             if (mcm) {
                 drawMCBitmapMode(ram + bitmapstart, ram + screenmemstart, vicreg[0x21], dline, deltay - 3, deltax);

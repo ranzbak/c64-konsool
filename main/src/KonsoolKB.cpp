@@ -31,17 +31,6 @@ extern "C" {
 
 static const char* TAG = "KonsoolKB";
 
-static const uint8_t NUMOFCYCLES_KEYPRESSEDDOWN = 16;
-
-static const uint8_t VIRTUALJOYSTICKLEFT_ACTIVATED    = 0x01;
-static const uint8_t VIRTUALJOYSTICKLEFT_DEACTIVATED  = 0x81;
-static const uint8_t VIRTUALJOYSTICKRIGHT_ACTIVATED   = 0x02;
-static const uint8_t VIRTUALJOYSTICKRIGHT_DEACTIVATED = 0x82;
-static const uint8_t VIRTUALJOYSTICKUP_ACTIVATED      = 0x04;
-static const uint8_t VIRTUALJOYSTICKUP_DEACTIVATED    = 0x84;
-static const uint8_t VIRTUALJOYSTICKDOWN_ACTIVATED    = 0x08;
-static const uint8_t VIRTUALJOYSTICKDOWN_DEACTIVATED  = 0x88;
-
 KonsoolKB::KonsoolKB()
 {
     buffer = nullptr;
@@ -65,11 +54,9 @@ void KonsoolKB::init(C64Emu* c64emu)
     ESP_ERROR_CHECK(bsp_input_get_queue(&input_event_queue));
 
     // init buffer
-    buffer            = new uint8_t[256];
-    keypresseddowncnt = NUMOFCYCLES_KEYPRESSEDDOWN;
-    keypresseddown    = false;
-    sentdc01          = 0xff;
-    sentdc00          = 0xff;
+    buffer   = new uint8_t[256];
+    sentdc01 = 0xff;
+    sentdc00 = 0xff;
 
     // init div
     virtjoystickvalue = 0xff;
@@ -81,7 +68,7 @@ void KonsoolKB::handleKeyPress()
     bsp_input_event_t event;
     uint8_t           key_code;
     static bool       keys_pressed[128];
-    static uint16_t   repeat_delay       = 0;
+    static uint16_t   repeat_delay = 0;
 
     // Reset C64 key matrix
     sentdc00 = 0xff;
@@ -93,7 +80,7 @@ void KonsoolKB::handleKeyPress()
     // Sync menu state with menu draw routine
     display->enableMenuOverlay(menuController->getVisible());
 
-    if (xQueueReceive(input_event_queue, &event, pdMS_TO_TICKS(10)) == pdTRUE) {
+    while (xQueueReceive(input_event_queue, &event, pdMS_TO_TICKS(1))) {
         // use Keycodes to keep track of pressed keys
         key_code = event.args_scancode.scancode;
         switch (event.type) {
@@ -101,6 +88,13 @@ void KonsoolKB::handleKeyPress()
                 keys_pressed[key_code & 0x7f] = (key_code & 0x80) ? false : true;
                 if (key_code == 0x40) {
                     menuController->toggle();
+                }
+                if (key_code == 0x3f) {  // Switch between joystick port 1 & 2
+                    int cur_port = menuDataStore->getInt("kb_joystick_port", 1);
+                    menuDataStore->set("kb_joystick_port", cur_port == 1 ? 2 : 1);
+                    // TODO: Remove me later
+                    cur_port = menuDataStore->getInt("kb_joystick_port", 1);
+                    ESP_LOGI(TAG, "Switched to joystick port %d", cur_port);
                 }
                 break;
             }
@@ -116,42 +110,34 @@ void KonsoolKB::handleKeyPress()
             return;
         }
         if (keys_pressed[0x48]) {  // UP key code
-            ESP_LOGI(TAG, "Handling UP key press");
+            ESP_LOGD(TAG, "Handling UP key press");
             menuController->handleInput(MENU_OVERLAY_INPUT_TYPE_UP);
             repeat_delay = 0;
         } else if (keys_pressed[0x50]) {  // DOWN key code
-            ESP_LOGI(TAG, "Handling DOWN key press");
+            ESP_LOGD(TAG, "Handling DOWN key press");
             menuController->handleInput(MENU_OVERLAY_INPUT_TYPE_DOWN);
             repeat_delay = 0;
         } else if (keys_pressed[0x4b]) {  // LEFT key code
-            ESP_LOGI(TAG, "Handling LEFT key press");
+            ESP_LOGD(TAG, "Handling LEFT key press");
             menuController->handleInput(MENU_OVERLAY_INPUT_TYPE_LEFT);
             repeat_delay = 0;
         } else if (keys_pressed[0x4d]) {  // RIGHT key code
-            ESP_LOGI(TAG, "Handling RIGHT key press");
+            ESP_LOGD(TAG, "Handling RIGHT key press");
             menuController->handleInput(MENU_OVERLAY_INPUT_TYPE_RIGHT);
             repeat_delay = 0;
         } else if (keys_pressed[0x01]) {  // ESC key code
-            ESP_LOGI(TAG, "Handling ESC key press");
+            ESP_LOGD(TAG, "Handling ESC key press");
             menuController->handleInput(MENU_OVERLAY_INPUT_TYPE_LAST);
             repeat_delay = 0;
         } else if (keys_pressed[0x1c]) {  // ENTER key code
-            ESP_LOGI(TAG, "Handling ENTER key press");
+            ESP_LOGD(TAG, "Handling ENTER key press");
             menuController->handleInput(MENU_OVERLAY_INPUT_TYPE_SELECT);
             repeat_delay = 0;
         }
     } else if (menuDataStore->getBool("kb_joystick_emu")) {
         // TODO: Handle joystick input
         virtjoystickvalue = 0xff;
-        key_code = event.args_scancode.scancode;
         // Allow UP, DOWN, LEFT, RIGHT, space for fire button
-        if (key_code == 0x3f) {  // Switch between joystick port 1 & 2
-            int cur_port = menuDataStore->getInt("kb_joystick_port", 1);
-            menuDataStore->set("kb_joystick_port", cur_port == 1 ? 2 : 1);
-            // TODO: Remove me later
-            cur_port = menuDataStore->getInt("kb_joystick_port", 1);
-            ESP_LOGI(TAG, "Switched to joystick port %d", cur_port);
-        }
         if (keys_pressed[0x48]) {  // UP key code
             virtjoystickvalue = ~(1 << Joystick::C64JOYUP);
         }
@@ -167,9 +153,21 @@ void KonsoolKB::handleKeyPress()
         if (keys_pressed[0x2a] || keys_pressed[0x1d]) {  // SHIFT key code
             virtjoystickvalue &= ~(1 << Joystick::C64JOYFIRE);
         }
+        // extra keys to make playing platform games easier
+        // Right shift is up + right
+        if (keys_pressed[0x36]) {  // RIGHT SHIFT key code
+            virtjoystickvalue &= ~(1 << Joystick::C64JOYUP);
+            virtjoystickvalue &= ~(1 << Joystick::C64JOYRIGHT);
+        }
+        // The '/' key is up + lift
+        if (keys_pressed[0x35]) {  // '/' key code
+            virtjoystickvalue &= ~(1 << Joystick::C64JOYUP);
+            virtjoystickvalue &= ~(1 << Joystick::C64JOYLEFT);
+        }
+    }
 
-    } else {
-        shiftctrlcode      = 0;
+    if (!menuController->getVisible() && virtjoystickvalue == 0xff) {
+        shiftctrlcode = 0;
 
         for (int i = 0; i < 128; i++) {
             // shiftctrlcode = second byte bit 0 -> left shift, bit 1 -> ctrl, bit 2 -> commodore, bit 7 -> external

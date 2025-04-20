@@ -10,7 +10,7 @@ typedef void (*AudioCallback)(int16_t* samples, size_t num_samples);
 #define SIDMODEL_8580 8580
 #define SIDMODEL_6581 6581
 
-#define DEFAULT_SIDMODEL SIDMODEL_6581
+#define DEFAULT_SIDMODEL SIDMODEL_8580
 
 #define C64_PAL_CPUCLK     985248.0
 #define SID_CHANNEL_AMOUNT 3
@@ -43,13 +43,13 @@ typedef void (*AudioCallback)(int16_t* samples, size_t num_samples);
 #define SAMPLES_PER_SCAN_LINE 63 / (CLOCK_RATIO_DEFAULT)
 
 #define SAMPLE_BUFFER_SIZE 32
-#define US_PER_SAMPLE      (1000000.0 / DEFAULT_SAMPLERATE);
-#define OUTPUT_SCALEDOWN   (SID_CHANNEL_AMOUNT * 16 + 26);
+// #define US_PER_SAMPLE      (1000000.0 / DEFAULT_SAMPLERATE);
 #define CUTOFF_RATIO_8580  (-2 * 3.14 * (12500.0 / 2048) / DEFAULT_SAMPLERATE)
 #define CLOCK_RATIO        (C64_PAL_CPUCLK / DEFAULT_SAMPLERATE)
 
-// //raw output divided by this after multiplied by main volume, this also
-// compensates for filter-resonance emphasis to avoid distotion
+//raw output divided by this after multiplied by main volume, this also
+// compensates for filter-resonance emphasis to avoid distortion
+#define OUTPUT_SCALEDOWN   (SID_CHANNEL_AMOUNT * 16 + 26);
 
 enum {
     GATE_BITMASK         = 0x01,
@@ -72,7 +72,6 @@ enum {
 class SID {
    private:
     // SID-emulation variables:
-    int32_t       SIDamount           = 1;
     int32_t       SID_model[3]        = {DEFAULT_SIDMODEL, DEFAULT_SIDMODEL, DEFAULT_SIDMODEL};
     int32_t       requested_SID_model = -1;
     uint8_t       ADSRstate[9], expcnt[9], prevSR[9], sourceMSBrise[9];
@@ -81,8 +80,8 @@ class SID {
     int32_t       phaseaccu[9], prevaccu[9], prevlowpass[3], prevbandpass[3];
     float         ratecnt[9], cutoff_steepness_6581, cap_6581_reciprocal;
     float         clock_ratio = CLOCK_RATIO_DEFAULT;
-    uint8_t* memory;
-    float   scan_line_sync = 0.0;
+    uint8_t*      memory;
+    float         scan_line_sync = 0.0;
     AudioCallback audio_callback = nullptr;
 
     int32_t combinedWF(uint8_t num, uint8_t channel, const uint32_t* wfarray, int index, char differ6581,

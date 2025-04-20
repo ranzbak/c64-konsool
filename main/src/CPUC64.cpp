@@ -445,6 +445,7 @@ void IRAM_ATTR CPUC64::run() {
     debuggingstarted      = false;
     numofcycles           = 0;
     uint8_t badlinecycles = 0;
+    uint8_t cycles_extra  = 0;
     while (true) {
         if (cpuhalted) {
             continue;
@@ -462,24 +463,15 @@ void IRAM_ATTR CPUC64::run() {
         // execute CPU cycles and check CIA timers
         // (4 = average number of cycles for an instruction)
         numofcycles              = 0;
-        // TODO: Replace by bad cycle map
-        // During bad cycles 40 cycles need to be wasted + bus take = 11-54 43 cycles
-        // For every sprite enabled and active on the line, 2 cycles before + 1 after
-        // Sprite 0 57-58
-        // Sprite 1 59-60
-        // Sprite 2 61-62
-        // Sprite 3 00-01
-        // Sprite 4 02-03
-        // Sprite 5 04-05
-        // Sprite 6 06-07
-        // Sprite 7 08-09
-        uint8_t numofcyclestoexe = 63 - (4 / 2) - badlinecycles;
+        uint8_t numofcyclestoexe = 63 - badlinecycles - cycles_extra;
         uint8_t n                = 1;
         if (badlinecycles == 0) {
             n = NUMCIACHECKS;
         }
         uint8_t tmp    = numofcyclestoexe / n;
         uint8_t sumtmp = tmp;
+        // Do CIA checks half way through the rasterline
+        // But not during bad lines
         for (uint8_t i = 0; i < n - 1; i++) {
             while (numofcycles < sumtmp) {
                 if (cpuhalted) {
@@ -491,6 +483,7 @@ void IRAM_ATTR CPUC64::run() {
             checkciatimers(tmp);
             sumtmp += tmp;
         }
+        // Finish the raster line
         tmp = numofcyclestoexe - numofcycles;
         while (numofcycles < numofcyclestoexe) {
             if (cpuhalted) {
@@ -499,6 +492,10 @@ void IRAM_ATTR CPUC64::run() {
             logDebugInfo();
             execute(getMem(pc++));
         }
+
+        // Make sure 63 cycles per rasterline on average
+        cycles_extra = numofcycles - numofcyclestoexe;
+        // TODO Add cycles access, > 63 gets subtracted from next rasterline
         checkciatimers(tmp);
         // draw rasterline
         vic->drawRasterline();
@@ -525,9 +522,6 @@ void IRAM_ATTR CPUC64::run() {
             }
             sleeptime = adjustcyclestmp - (esp_timer_get_time() - presleeptime);
             wait_counter += sleeptime;
-            // if (sleeptime < adjustcyclestmp) {
-            //     esp_rom_delay_us(sleeptime);  // Fine tune the speed with us sleep
-            // }
             adjustcycles.store(0, std::memory_order_release);
         }
     }

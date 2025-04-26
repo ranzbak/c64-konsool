@@ -3,7 +3,7 @@
 // global constants and variables
 #include <cstddef>
 #include <cstdint>
-#include "esp_attr.h"
+#include "../Config.hpp"
 
 typedef void (*AudioCallback)(int16_t* samples, size_t num_samples);
 
@@ -12,14 +12,7 @@ typedef void (*AudioCallback)(int16_t* samples, size_t num_samples);
 
 #define DEFAULT_SIDMODEL SIDMODEL_8580
 
-#define C64_PAL_CPUCLK     985248.0
-#define SID_CHANNEL_AMOUNT 3
-#define LINES_PER_FRAME    312.5
-#define PAL_FRAMERATE      50.1245419
-// 50.06 // 50.0443427 //50.1245419 //(C64_PAL_CPUCLK/63/312.5), selected
-// 50.06 // 50.0443427 //50.1245419 //(C64_PAL_CPUCLK/63/312.5), selected
 // carefully otherwise some ADSR-sensitive tunes may suffer more:
-// TODO: Higher sample frequency in the future, but for no we don't have the cycles.
 #define DEFAULT_SAMPLERATE 22050.0
 // 11025.0  //(Soldier of Fortune, 2nd Reality, Alliance, X-tra energy, Jackal,
 // 16000.0 //(Soldier of Fortune, 2nd Reality, Alliance, X-tra energy, Jackal,
@@ -43,13 +36,12 @@ typedef void (*AudioCallback)(int16_t* samples, size_t num_samples);
 #define SAMPLES_PER_SCAN_LINE 63 / (CLOCK_RATIO_DEFAULT)
 
 #define SAMPLE_BUFFER_SIZE 32
-// #define US_PER_SAMPLE      (1000000.0 / DEFAULT_SAMPLERATE);
 #define CUTOFF_RATIO_8580  (-2 * 3.14 * (12500.0 / 2048) / DEFAULT_SAMPLERATE)
 #define CLOCK_RATIO        (C64_PAL_CPUCLK / DEFAULT_SAMPLERATE)
 
-//raw output divided by this after multiplied by main volume, this also
-// compensates for filter-resonance emphasis to avoid distortion
-#define OUTPUT_SCALEDOWN   (SID_CHANNEL_AMOUNT * 16 + 26);
+// raw output divided by this after multiplied by main volume, this also
+//  compensates for filter-resonance emphasis to avoid distortion
+#define OUTPUT_SCALEDOWN (SID_CHANNEL_AMOUNT * 16 + 26);
 
 enum {
     GATE_BITMASK         = 0x01,

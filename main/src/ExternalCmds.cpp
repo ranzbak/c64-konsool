@@ -17,6 +17,7 @@
 #include "ExternalCmds.hpp"
 #include <esp_log.h>
 #include "C64Emu.hpp"
+#include "Config.hpp"
 #include "listactions.h"
 #include "loadactions.h"
 #include "saveactions.hpp"
@@ -176,7 +177,7 @@ uint8_t ExternalCmds::executeExternalCmd(uint8_t* buffer) {
             bool     error        = false;
             uint16_t addr;
             if (sdcard.init()) {
-                addr = sdcard.load_auto(SD_CARD_MOUNT_POINT, ram);
+                addr = sdcard.load_auto(SD_CARD_PRG_PATH, ram);
                 if (addr == 0) {
                     ESP_LOGI(TAG, "file not found");
                 } else {
@@ -204,7 +205,7 @@ uint8_t ExternalCmds::executeExternalCmd(uint8_t* buffer) {
             c64emu->cpu.cpuhalted = true;
             bool filesaved        = false;
             if (sdcard.init()) {
-                filesaved = sdcard.save(SD_CARD_MOUNT_POINT, const_cast<uint8_t*>(ram));
+                filesaved = sdcard.save(SD_CARD_PRG_PATH, const_cast<uint8_t*>(ram));
                 if (!filesaved) {
                     ESP_LOGI(TAG, "error saving file");
                 }

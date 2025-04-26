@@ -28,7 +28,7 @@ LoadMenu::~LoadMenu() {};
 std::vector<MenuItem> LoadMenu::getDirPage(uint16_t page) {
     ESP_LOGI(TAG, "Loading directory page %d", page);
 
-    auto     entries  = sdcard->listPagedEntries(SD_CARD_MOUNT_POINT, page, pageSize);
+    auto     entries  = sdcard->listPagedEntries(SD_CARD_PRG_PATH, page, pageSize);
     uint16_t id_count = 0;
     for (auto& entry : entries) {
         MenuItem item = MenuItem();

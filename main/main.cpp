@@ -112,6 +112,6 @@ extern "C" void app_main(void) {
         c64Emu.loop();
          to50hz -= 1.0;
         }
-        to50hz += 50.12/60;
+        to50hz += PAL_FRAMERATE;
     }
 }

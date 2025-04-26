@@ -79,7 +79,7 @@ bool SDCard::init() {
         .use_one_fat              = false,
     };
 
-    const char mount_point[] = SD_CARD_MOUNT_POINT;
+    static const char mount_point[] = SD_CARD_MOUNT_POINT;
 
     ret = esp_vfs_fat_sdmmc_mount(mount_point, &host, &slot_config, &mount_config, &mount_card);
     if (ret != ESP_OK) {
@@ -131,7 +131,7 @@ void getPath(char* path, uint8_t* ram) {
 
 uint16_t SDCard::load(const char* path, uint8_t* ram, size_t len) {
     char full_path[128];
-    snprintf(full_path, sizeof(full_path), "%s%s", SD_CARD_MOUNT_POINT, path);
+    snprintf(full_path, sizeof(full_path), "%s%s", SD_CARD_PRG_PATH, path);
     int fd = open(full_path, O_RDONLY);
     if (fd < 0) return 0;
 
@@ -154,7 +154,7 @@ uint16_t SDCard::load_auto(const char* path, uint8_t* ram, size_t len) {
     ESP_LOGI(TAG, "load file %s", path);
 
     char full_path[128];
-    snprintf(full_path, sizeof(full_path), "%s%s", SD_CARD_MOUNT_POINT, file_path);
+    snprintf(full_path, sizeof(full_path), "%s%s", SD_CARD_PRG_PATH, file_path);
     int fd = open(full_path, O_RDONLY);
     if (fd < 0) return 0;
 
@@ -244,7 +244,18 @@ bool SDCard::listNextEntry(uint8_t* nextentry, size_t entrySize, bool start) {
             closedir(dir);
             dir = nullptr;
         }
-        dir = opendir(SD_CARD_MOUNT_POINT);
+
+        // TODO: Remove test block
+        // open the root directory and log all entries
+        dir = opendir("/sdcard");
+        // log all entries in the root directory
+        ESP_LOGI(TAG, "Listing root directory:");
+        while ((ent = readdir(dir)) != nullptr) {
+            ESP_LOGI(TAG, "found file: %s", ent->d_name);
+        }
+        closedir(dir);
+
+        dir = opendir(SD_CARD_PRG_PATH);
         if (!dir) {
             ESP_LOGI(TAG, "cannot open root dir");
             return false;

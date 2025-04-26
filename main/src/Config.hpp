@@ -18,119 +18,48 @@
 
 #include <cstdint>
 #include "soc/gpio_num.h"
-extern "C" {
-  #include <esp_adc/adc_oneshot.h>
-}
 
+#define C64_PAL_CPUCLK     985248.0
+#define SID_CHANNEL_AMOUNT 3
+#define LINES_PER_FRAME    312
+#define PAL_FRAMERATE      50.1245419
 
-// #define BOARD_T_HMI
-//#define BOARD_T_DISPLAY_S3
 #define BOARD_KONSOOL
 
-// #ifdef BOARD_KONSOOL
-// extern size_t display_h_res;
-// extern size_t display_v_res;
-// #endif
 
 struct Config {
 
-#if defined(BOARD_T_HMI)
-// #define USE_ST7789V
-#define USE_SDCARD
-#define USE_JOYSTICK
-
-  static const gpio_num_t PWR_EN = GPIO_NUM_10;
-  static const gpio_num_t PWR_ON = GPIO_NUM_14;
-  static const adc_channel_t BAT_ADC = ADC_CHANNEL_4; // GPIO5
-
-  // ST7789V
-  static const gpio_num_t BL = GPIO_NUM_38;
-  static const gpio_num_t CS = GPIO_NUM_6;
-  static const gpio_num_t DC = GPIO_NUM_7;
-  static const gpio_num_t WR = GPIO_NUM_8;
-  static const gpio_num_t D0 = GPIO_NUM_48;
-  static const gpio_num_t D1 = GPIO_NUM_47;
-  static const gpio_num_t D2 = GPIO_NUM_39;
-  static const gpio_num_t D3 = GPIO_NUM_40;
-  static const gpio_num_t D4 = GPIO_NUM_41;
-  static const gpio_num_t D5 = GPIO_NUM_42;
-  static const gpio_num_t D6 = GPIO_NUM_45;
-  static const gpio_num_t D7 = GPIO_NUM_46;
-
-  // DisplayDriver (considering a possible rotation)
-  static const uint16_t LCDWIDTH = 320;
-  static const uint16_t LCDHEIGHT = 240;
-  static const gpio_num_t REFRESHDELAY = GPIO_NUM_1;
-
-  // SDCard
-  static const gpio_num_t SD_MISO_PIN = GPIO_NUM_13;
-  static const gpio_num_t SD_MOSI_PIN = GPIO_NUM_11;
-  static const gpio_num_t SD_SCLK_PIN = GPIO_NUM_12;
-
-  // Joystick
-  static const adc_channel_t ADC_JOYSTICK_X = ADC_CHANNEL_4;
-  static const adc_channel_t ADC_JOYSTICK_Y = ADC_CHANNEL_5;
-  static const gpio_num_t JOYSTICK_FIRE_PIN = GPIO_NUM_18;
-  static const gpio_num_t JOYSTICK_FIRE2_PIN = GPIO_NUM_17;
-
-#elif defined(BOARD_T_DISPLAY_S3)
-#define USE_RM67162
-
-  static const adc_channel_t BAT_ADC = ADC_CHANNEL_3; // GPIO4
-
-  // DisplayDriver (considering a possible rotation)
-  static const uint16_t LCDWIDTH = 536;
-  static const uint16_t LCDHEIGHT = 240;
-  static const uint8_t REFRESHDELAY = 13;
-#endif
 #if defined(BOARD_KONSOOL)
-// TODO: Replace with pax setup
 #define USE_SDCARD
 #define SD_CARD_MOUNT_POINT "/sdcard"
+#define SD_CARD_PRG_PATH SD_CARD_MOUNT_POINT "/c64prg"
 #define USE_JOYSTICK
 #define USE_GFXP4
 #define NEW_COMBINED_WAVEFORMS
 
-  static const gpio_num_t PWR_EN = GPIO_NUM_10;
-  static const gpio_num_t PWR_ON = GPIO_NUM_14;
-  // static const adc_channel_t BAT_ADC = ADC_CHANNEL_4; // GPIO5
+    static const gpio_num_t PWR_EN = GPIO_NUM_10;
+    static const gpio_num_t PWR_ON = GPIO_NUM_14;
 
-  // DisplayDriver (considering a possible rotation)
-  static const uint16_t LCDWIDTH = 0;
-  static const uint16_t LCDHEIGHT = 0;
-  static const uint16_t REFRESHDELAY = 1;
+    // LCD Display IO
+    static const gpio_num_t LCDTE = GPIO_NUM_11;
 
-  // LCD Display IO
-  static const gpio_num_t LCDTE = GPIO_NUM_11;
+    // SDCard
+    static const gpio_num_t SD_MISO_PIN = GPIO_NUM_39;
+    static const gpio_num_t SD_MOSI_PIN = GPIO_NUM_44;
+    static const gpio_num_t SD_SCLK_PIN = GPIO_NUM_43;
+    static const gpio_num_t SD_CS_PIN   = GPIO_NUM_42;
 
-  // SDCard
-  static const gpio_num_t SD_MISO_PIN = GPIO_NUM_39;
-  static const gpio_num_t SD_MOSI_PIN = GPIO_NUM_44;
-  static const gpio_num_t SD_SCLK_PIN = GPIO_NUM_43;
-  static const gpio_num_t SD_CS_PIN = GPIO_NUM_42;
-
-  // Joystick
-  static const gpio_num_t JOYSTICK_LEFT = GPIO_NUM_2;    // MTCK GPIO_2
-  static const gpio_num_t JOYSTICK_RIGHT = GPIO_NUM_3;   // MTDI GPIO_3
-  static const gpio_num_t JOYSTICK_UP = GPIO_NUM_4;      // MTMS GPIO_4
-  static const gpio_num_t JOYSTICK_DOWN = GPIO_NUM_15;    // SAO_IO1 GPIO_15
-  static const gpio_num_t JOYSTICK_FIRE_PIN = GPIO_NUM_13; // SAO_SCL GPIO_13
-
-
-#elif defined(BOARD_T_DISPLAY_S3)
-#define USE_RM67162
-
-  static const adc_channel_t BAT_ADC = ADC_CHANNEL_3; // GPIO4
-
-  // DisplayDriver (considering a possible rotation)
-  static const uint16_t LCDWIDTH = 536;
-  static const uint16_t LCDHEIGHT = 240;
-  static const uint8_t REFRESHDELAY = 13;
+    // Joystick
+    static const gpio_num_t JOYSTICK_LEFT     = GPIO_NUM_2;   // MTCK GPIO_2
+    static const gpio_num_t JOYSTICK_RIGHT    = GPIO_NUM_3;   // MTDI GPIO_3
+    static const gpio_num_t JOYSTICK_UP       = GPIO_NUM_4;   // MTMS GPIO_4
+    static const gpio_num_t JOYSTICK_DOWN     = GPIO_NUM_15;  // SAO_IO1 GPIO_15
+    static const gpio_num_t JOYSTICK_FIRE_PIN = GPIO_NUM_13;  // SAO_SCL GPIO_13
 #endif
 
-  // resolution of system timer (throttling 6502 CPU, get BLE KB codes)
-  static const uint16_t INTERRUPTSYSTEMRESOLUTION = 1000;
+    // resolution of system timer (throttling 6502 CPU, get BLE KB codes)
+    static const uint16_t INTERRUPTSYSTEMRESOLUTION = 1000;
 
-  // number of "steps" to average throttling
-  static const uint8_t THROTTELINGNUMSTEPS = 50;
-}; // namespace Config
+    // number of "steps" to average throttling
+    static const uint8_t THROTTELINGNUMSTEPS = 50;
+};  // namespace Config

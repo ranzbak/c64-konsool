@@ -183,7 +183,7 @@ void IRAM_ATTR C64Emu::interruptSystemFunc()
     throttlingCnt++;
     uint16_t measuredcyclestmp = cpu.measuredcycles.load(std::memory_order_acquire);
     // do not throttle at first half of each "measurement period" (otherwise CPU
-    // is throtteled a little bit too much)
+    // is throttled a little bit too much)
     if (throttlingCnt >= Config::THROTTELINGNUMSTEPS / 2) {
         if (measuredcyclestmp > throttlingCnt * Config::INTERRUPTSYSTEMRESOLUTION) {
             uint16_t adjustcycles = measuredcyclestmp - throttlingCnt * Config::INTERRUPTSYSTEMRESOLUTION;

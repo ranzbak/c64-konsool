@@ -98,7 +98,7 @@ void MenuBaseClass::activateItem(uint16_t id)
             menuDataStore->set(item->value_name, !checked);
             checked = menuDataStore->getBool(item->value_name, false);
 
-            ESP_LOGD(TAG, "Toggling toggle item: %s : %s", item->value_name.c_str(), checked ? "yes" : "no");
+            ESP_LOGD(TAG, "Toggling toggle item: %s : %s", item->value_name.c_str(), checked ? "on" : "off");
             if (item->action != nullptr) {
                 item->action(item);
             }

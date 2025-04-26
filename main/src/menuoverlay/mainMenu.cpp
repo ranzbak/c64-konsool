@@ -86,11 +86,19 @@ bool MainMenu::init()
     reset_item->type     = MenuItemType::ACTION;
     reset_item->action   = [this](MenuItem* item) { this->resetC64(item); };
     items.push_back(*reset_item);
-    // Separator
-    MenuItem* sep2 = new MenuItem();
-    sep2->id       = id_count++;
-    sep2->type     = MenuItemType::SPACER;
-    items.push_back(*sep2);
+
+    MenuItem* perf_mon = new MenuItem();
+    perf_mon->id         = id_count++;
+    perf_mon->title      = "Performance Monitor: ";
+    perf_mon->type       = MenuItemType::TOGGLE;
+    perf_mon->value_name = "perf_mon_ena";
+    menuDataStore->set("perf_mon_ena", false);
+    perf_mon->action     = [this, menuDataStore](MenuItem* item) {
+        bool enabled = menuDataStore->getBool("perf_mon_ena", true);
+        // Set the performance monitor enabled/disabled in C64Emu
+        this->c64emu->perf = enabled;
+    };
+    items.push_back(*perf_mon);
 
     return true;
 }

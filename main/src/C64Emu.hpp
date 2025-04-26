@@ -18,8 +18,8 @@
 
 // #include "BLEKB.h"
 #include "KonsoolKB.hpp"
-#include "esp_attr.h"
-#include "freertos/projdefs.h"
+// #include "esp_attr.h"
+// #include "freertos/projdefs.h"
 #include "menuoverlay/MenuController.hpp"
 #include "portmacro.h"
 extern "C" {
@@ -31,19 +31,21 @@ extern "C" {
 #include "ExternalCmds.hpp"
 #include "freertos/idf_additions.h"
 #include "freertos/semphr.h"
-#include "sid/sid.hpp"
 #include "sid/i2s.hpp"
+#include "sid/sid.hpp"
 
 class C64Emu {
    private:
     static C64Emu* instance;  // needed for wrapper methods
-    static void    interruptTODFuncWrapper() {
+    static void    interruptTODFuncWrapper()
+    {
         if (instance != nullptr) {
             instance->interruptTODFunc();
         }
     }
 
-    static void handleKeyboardFuncWrapper(void* parameter) {
+    static void handleKeyboardFuncWrapper(void* parameter)
+    {
         while (true) {
             if (instance != nullptr) {
                 instance->handleKeyboardFunc();
@@ -52,17 +54,14 @@ class C64Emu {
         }
     }
 
-    static void interruptSystemFuncWrapper(void* parameter) {
+    static void interruptProfilingBatteryCheckFuncWrapper(void* parameter)
+    {
         if (instance != nullptr) {
-            instance->interruptSystemFunc();
+            instance->interruptProfilingBatteryCheckFunc();
         }
     }
-    static void interruptProfilingBatteryCheckFuncWrapper(void* parameter) {
-      if (instance != nullptr) {
-        instance->interruptProfilingBatteryCheckFunc();
-      }
-    }
-    static void cpuCodeWrapper(void* parameter) {
+    static void cpuCodeWrapper(void* parameter)
+    {
         if (instance != nullptr) {
             instance->cpuCode(parameter);
         }

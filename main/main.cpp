@@ -21,36 +21,37 @@
 // #include <iostream>
 // #include <thread>
 #include "Config.hpp"
-#include "bsp/led.h"
-#include "esp_lcd_panel_io.h"
-#include "esp_rom_gpio.h"
-#include "freertos/projdefs.h"
-#include "hal/gpio_types.h"
-#include "hal/usb_serial_jtag_ll.h"
+// #include "bsp/led.h"
+// #include "esp_lcd_panel_io.h"
+// #include "esp_rom_gpio.h"
+#include "freertos/idf_additions.h"
+// #include "freertos/projdefs.h"
+// #include "hal/gpio_types.h"
+// #include "hal/usb_serial_jtag_ll.h"
 #include "portmacro.h"
-#include "targets/tanmatsu/tanmatsu_hardware.h"
+// #include "targets/tanmatsu/tanmatsu_hardware.h"
 #ifdef __cplusplus
 extern "C" {
 #include "bsp/device.h"
 #include "bsp/display.h"
-#include "bsp/input.h"
+// #include "bsp/input.h"
 #include "driver/gpio.h"
-#include "esp_lcd_panel_ops.h"
-#include "hal/lcd_types.h"
+// #include "esp_lcd_panel_ops.h"
+// #include "hal/lcd_types.h"
 #include "nvs_flash.h"
 }
 #endif
 #include "driver/gpio.h"
 #include "esp_log.h"
-#include "freertos/FreeRTOS.h"
+// #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
 #include "freertos/task.h"
-#include "pax_fonts.h"
-#include "pax_gfx.h"
-#include "pax_text.h"
-#include "pax_types.h"
+// #include "pax_fonts.h"
+// #include "pax_gfx.h"
+// #include "pax_text.h"
+// #include "pax_types.h"
 #include "src/C64Emu.hpp"
-#include "src/konsoolled.hpp"
+// #include "src/konsoolled.hpp"
 // #include "src/Config.hpp"
 // Constants
 static char const* TAG = "app_main";
@@ -64,7 +65,8 @@ static char const* TAG = "app_main";
 
 C64Emu c64Emu;
 
-void setup() {
+void setup()
+{
     ESP_LOGI(TAG, "start setup...");
     // ESP_LOGI(TAG, "setup() running on core %d", xPortGetCoreID());
     try {
@@ -80,8 +82,10 @@ void setup() {
     ESP_LOGI(TAG, "setup done");
 }
 
-extern "C" void app_main(void) {
-    SemaphoreHandle_t semaphore = NULL;
+extern "C" void app_main(void)
+{
+    SemaphoreHandle_t semaphore      = NULL;
+    SemaphoreHandle_t frameRateMutex = NULL;
 
     // Start the GPIO interrupt service
     gpio_install_isr_service(0);
@@ -102,6 +106,9 @@ extern "C" void app_main(void) {
 
     float to50hz = 0;
 
+    // Get 50Hz frame rate semaphore
+    frameRateMutex = c64Emu.cpu.getFrameRateMutex();
+
     // Main loop outputs C64 screen contents to the display
     while (true) {
         // Wait for display refresh signal
@@ -109,9 +116,11 @@ extern "C" void app_main(void) {
 
         // We only want 50Hz output, so we'll skip some frames
         if (to50hz > 1.0) {
-        c64Emu.loop();
-         to50hz -= 1.0;
+            c64Emu.loop();
+            xSemaphoreGive(frameRateMutex);
+            to50hz -= 1.0;
         }
-        to50hz += PAL_FRAMERATE;
+        // Make sure we always have 50Hz output
+        to50hz += PAL_TO_NTSC_RATIO;
     }
 }

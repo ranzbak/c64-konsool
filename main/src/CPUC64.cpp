@@ -22,6 +22,7 @@
 #include "JoystickInitializationException.h"
 #include "esp_attr.h"
 #include "esp_timer.h"
+#include "freertos/idf_additions.h"
 #include "portmacro.h"
 #include "roms/basic.h"
 #include "roms/kernal.h"
@@ -444,8 +445,9 @@ void IRAM_ATTR CPUC64::run() {
     debugstartaddr        = 0;
     debuggingstarted      = false;
     numofcycles           = 0;
-    uint8_t badlinecycles = 0;
-    uint8_t cycles_extra  = 0;
+    static uint8_t badlinecycles = 0;
+    static uint8_t spritecycles = 0;
+    static int8_t cycles_extra  = 0;
     while (true) {
         if (cpuhalted) {
             continue;
@@ -453,8 +455,14 @@ void IRAM_ATTR CPUC64::run() {
 
         // prepare next rasterline
         badlinecycles = vic->nextRasterline();
+        spritecycles = vic->spriteDmaCycles();
+
+        if (badlinecycles) {
+            vic->screenHeight();
+        }
         if (vic->screenblank) {
             badlinecycles = 0;
+            spritecycles = 0;
         }
         // raster line interrupt?
         if ((vic->vicreg[0x19] & 0x81) && (vic->vicreg[0x1a] & 1) && (!iflag)) {
@@ -463,13 +471,13 @@ void IRAM_ATTR CPUC64::run() {
         // execute CPU cycles and check CIA timers
         // (4 = average number of cycles for an instruction)
         numofcycles              = 0;
-        uint8_t numofcyclestoexe = 63 - badlinecycles - cycles_extra;
+        uint8_t numofcyclestoexe = 63 - badlinecycles - spritecycles - cycles_extra;
         uint8_t n                = 1;
         if (badlinecycles == 0) {
             n = NUMCIACHECKS;
         }
         uint8_t tmp    = numofcyclestoexe / n;
-        uint8_t sumtmp = tmp;
+        uint8_t sumtmp = tmp > 0 ? tmp : n;
         // Do CIA checks half way through the rasterline
         // But not during bad lines
         for (uint8_t i = 0; i < n - 1; i++) {
@@ -509,12 +517,19 @@ void IRAM_ATTR CPUC64::run() {
             setPCToIntVec(getMem(0xfffa) + (getMem(0xfffb) << 8), false);
         }
 
-        // throttle CPU
+        // throttle CPU at end of frame, and wait for the frame to be displayed
+        if (vic->rasterline == 311) {
+            xSemaphoreTake(frameRateMutex, 1000);
+        }
+        // TODO: use frame rate control
+        #if 0
         numofcyclespersecond += numofcycles;
         measuredcycles.fetch_add(numofcycles, std::memory_order_release);
         
         uint16_t adjustcyclestmp = adjustcycles.load(std::memory_order_acquire);
         int64_t sleeptime       = 0;
+        
+
         if (adjustcyclestmp > 0) {
             presleeptime = esp_timer_get_time();
             if(adjustcyclestmp + wait_counter > 0) {
@@ -524,6 +539,7 @@ void IRAM_ATTR CPUC64::run() {
             wait_counter += sleeptime;
             adjustcycles.store(0, std::memory_order_release);
         }
+        #endif
     }
 }
 
@@ -560,6 +576,11 @@ void CPUC64::init(uint8_t* ram, uint8_t* charrom, VIC* vic, C64Emu* c64emu) {
     } catch (const JoystickInitializationException& e) {
         ESP_LOGI(TAG, "error in init. of joystick: %s - continue anyway", e.what());
     }
+
+    // Setup refresh rate semaphore
+    frameRateMutex = xSemaphoreCreateBinary();
+
+    // Setup Memory for first boot
     initMemAndRegs();
 }
 

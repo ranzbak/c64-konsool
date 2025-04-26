@@ -25,10 +25,9 @@ esp_err_t I2S::init()
         return res;
     }
 
-    // TODO: Add enable to menu
     ESP_LOGI(TAG, "Enable aplifier for audio output");
     bsp_audio_set_volume(80);
-    bsp_audio_set_amplifier(true);
+    bsp_audio_set_amplifier(false);
 
     ESP_LOGI(TAG, "Initializing I2S audio interface");
     // I2S audio

@@ -18,7 +18,7 @@
 #include <driver/gpio.h>
 #include <string.h>
 #include <cstdint>
-#include "Config.hpp"
+// #include "Config.hpp"
 #include "ExternalCmds.hpp"
 // #include "HardwareInitializationException.h"
 #include "VIC.hpp"
@@ -27,15 +27,17 @@
 #include "esp_err.h"
 // #include "esp_log_level.h"
 // #include "esp_rom_gpio.h"
+#include "esp_timer.h"
 #include "freertos/idf_additions.h"
 // #include "hal/gpio_types.h"
 #include "portmacro.h"
 #include "roms/charset.h"
 #include "sid/sid.hpp"
 extern "C" {
-#include <esp_adc/adc_cali.h>
-#include <esp_adc/adc_cali_scheme.h>
-#include <esp_adc/adc_oneshot.h>
+#include "bsp/battery.h"
+// #include <esp_adc/adc_cali.h>
+// #include <esp_adc/adc_cali_scheme.h>
+// #include <esp_adc/adc_oneshot.h>
 #include <esp_log.h>
 // #include <inttypes.h>
 }
@@ -48,30 +50,8 @@ C64Emu* C64Emu::instance = nullptr;
 
 void IRAM_ATTR C64Emu::interruptProfilingBatteryCheckFunc()
 {
-    // battery check
-    //   cntSecondsForBatteryCheck++;
-    //   if (cntSecondsForBatteryCheck >= 300) { // each 5 minutes
-    // get battery voltage
-    // int raw_value = 0;
-    // adc_oneshot_read(adc1_handle, Config::BAT_ADC, &raw_value);
-    // int voltage = 0;
-    // if (adc_cali_handle) {
-    //   adc_cali_raw_to_voltage(adc_cali_handle, raw_value, &voltage);
-    //   voltage *= 2;
-    // } else {
-    //   // fallback if calibration was not successful
-    //   voltage = raw_value * 2;
-    // }
-    // batteryVoltage = voltage;
-    // ESP_LOGI(TAG, "adc raw: %d", raw_value);
-    // ESP_LOGI(TAG, "battery voltage: %d mV", batteryVoltage);
-    // if battery voltage is too low, then power off device
-    // if (batteryVoltage < 3550) {
-    //   powerOff();
-    // }
-    // // reset "timer"
-    // cntSecondsForBatteryCheck = 0;
-    //   }
+    // Retrieve the battery voltage
+    bsp_battery_get_voltage((uint16_t*)&batteryVoltage);
 
     // profiling (if activated)
     if (!perf) {
@@ -79,11 +59,10 @@ void IRAM_ATTR C64Emu::interruptProfilingBatteryCheckFunc()
     }
     // frames per second
     if (vic.cntRefreshs != 0) {
-        ESP_LOGI(TAG, "fps: %d", vic.cntRefreshs);
+        ESP_LOGI(TAG, "fps: %d batv: %d", vic.cntRefreshs, (int)batteryVoltage);
     }
     vic.cntRefreshs            = 0;
     // number of cycles per second
-    //   ESP_LOGI(TAG, "noc: %d, nbc: %d", cpu.numofcyclespersecond, numofburnedcyclespersecond);
     cpu.numofcyclespersecond   = 0;
     numofburnedcyclespersecond = 0;
 }
@@ -177,26 +156,6 @@ void C64Emu::handleKeyboardFunc()
     }
 }
 
-void IRAM_ATTR C64Emu::interruptSystemFunc()
-{
-    // throttle 6502 CPU
-    throttlingCnt++;
-    uint16_t measuredcyclestmp = cpu.measuredcycles.load(std::memory_order_acquire);
-    // do not throttle at first half of each "measurement period" (otherwise CPU
-    // is throttled a little bit too much)
-    if (throttlingCnt >= Config::THROTTELINGNUMSTEPS / 2) {
-        if (measuredcyclestmp > throttlingCnt * Config::INTERRUPTSYSTEMRESOLUTION) {
-            uint16_t adjustcycles = measuredcyclestmp - throttlingCnt * Config::INTERRUPTSYSTEMRESOLUTION;
-            cpu.adjustcycles.store(adjustcycles, std::memory_order_release);
-            numofburnedcyclespersecond += adjustcycles;
-        }
-        if (throttlingCnt == Config::THROTTELINGNUMSTEPS) {
-            throttlingCnt = 0;
-            cpu.measuredcycles.store(0, std::memory_order_release);
-        }
-    }
-}
-
 void C64Emu::cpuCode(void* parameter)
 {
     ESP_LOGI(TAG, "cpuTask running on core %d", xPortGetCoreID());
@@ -281,34 +240,14 @@ void C64Emu::setup()
                             &interruptTask,             //
                             0);
 
-    // interrupt each 1000 us to get keyboard codes and throttle 6502 CPU
-    // TODO add keyboard handling back
-    // interruptSystem = timerBegin(1000000);
-    // timerAttachInterrupt(interruptSystem, &interruptSystemFuncWrapper);
-    // timerAlarm(interruptSystem, Config::INTERRUPTSYSTEMRESOLUTION, true, 0);
-
-    ESP_LOGI(TAG, "Setup Inturrupt System timer.");
-
-    const esp_timer_create_args_t timer_args = {
-        .callback = &interruptSystemFuncWrapper, .arg = NULL, .name = "interrupt_timer"};
-
-    esp_timer_create(&timer_args, &interrupt_timer);
-    esp_timer_start_periodic(interrupt_timer, Config::INTERRUPTSYSTEMRESOLUTION);  // in microseconds
-
-    // TODO: Move to the menu structure
-    // perf = true;
-
-    const esp_timer_create_args_t profiling_timer_args = {
-        .callback = &interruptProfilingBatteryCheckFuncWrapper, .arg = NULL, .name = "profiling_timer"};
+    // Check FPS
+    const esp_timer_create_args_t profiling_timer_args = {.callback        = &interruptProfilingBatteryCheckFuncWrapper,
+                                                          .arg             = NULL,
+                                                          .dispatch_method = ESP_TIMER_TASK,
+                                                          .name            = "profiling_timer",
+                                                          .skip_unhandled_events = true};
     esp_timer_create(&profiling_timer_args, &profiling_timer);
     esp_timer_start_periodic(profiling_timer, 1000000);  // in microseconds
-
-    // profiling + battery check: interrupt each second
-    // TODO: Implement battery check using BSP
-    // interruptProfilingBatteryCheck = timerBegin(1000000);
-    // timerAttachInterrupt(interruptProfilingBatteryCheck,
-    //                      &interruptProfilingBatteryCheckFuncWrapper);
-    // timerAlarm(interruptProfilingBatteryCheck, 1000000, true, 0);
 }
 
 void C64Emu::loop()

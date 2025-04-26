@@ -519,6 +519,66 @@ void VIC::drawSpriteDataMCDS(uint8_t bitnr, int16_t xpos, uint8_t ypos, uint8_t*
     }
 }
 
+uint8_t VIC::spriteDmaCycles()
+{
+    // Check if sprite is on the current raster line
+    //
+    uint8_t sprite_ena = 0;
+
+    uint8_t spritesdoubley = vicreg[0x17];
+    uint8_t spritesenabled = vicreg[0x15];
+    uint8_t deltay = vicreg[0x11] & 7;
+    bool    den    = vicreg[0x11] & 16;  // Display enable
+    uint8_t bitval         = 128;
+    uint8_t steal_cycles   = 0;
+
+    // Only 8 bit for line comparison, so sprites repeat if placed in extremes of the screen
+    uint8_t line = rasterline + deltay - 3;
+
+    // No sprite DMA when display is disabled
+    if (!den) {
+        return 0;
+    }
+
+    for (int8_t nr = 7; nr >= 0; nr--) {
+        uint16_t y        = vicreg[0x01 + nr * 2];
+        uint8_t  facysize = (spritesdoubley & bitval) ? 2 : 1;
+
+        // 3 cycles CPU-stun + 2 cycles fetching sprite data
+        // when no previous sprite was enabled, add 5 CPU cycles stolen (3 stun + 2 fetching)
+        // when the previous sprite was enabled, add 2 CPU cycles stolen (already stunned 0 + 2 fetching)
+        // when the before previous sprite was enabled, add 4 CPU cycles stolen (2 no time to destun + 2 fetching)
+        if (spritesenabled & bitval) {
+            if ((line >= y) && (line < (y + 21 * facysize))) {
+                switch (sprite_ena) {
+                    case 0x00:
+                        steal_cycles += 5;
+                        break;
+                    case 0x02:
+                        steal_cycles += 2;
+                        break;
+                    case 0x04:
+                        steal_cycles += 4;
+                        break;
+                    case 0x06:
+                        steal_cycles += 2;
+                        break;
+                    default:
+                        break;
+                }
+
+                // Mark current sprite as enabled
+                sprite_ena |= 0x01;
+            }
+        }
+
+        sprite_ena = (sprite_ena << 1) & 0x07;
+        bitval >>= 1;
+    }
+
+    return steal_cycles;
+}
+
 void VIC::drawSprites(uint8_t line)
 {
     uint8_t spritesenabled = vicreg[0x15];
@@ -538,7 +598,7 @@ void VIC::drawSprites(uint8_t line)
                 if (vicreg[0x10] & bitval) {
                     x += 256;
                 }
-                uint8_t  ypos     = line - 0x30;
+                uint8_t  ypos     = line - wstart;
                 uint16_t dataaddr = ram[screenmemstart + 1016 + nr] * 64;
                 uint8_t* data     = ram + vicmem + dataaddr + ((line - y) / facysize) * 3;
                 uint8_t  col      = vicreg[0x27 + nr] & 0x0f;
@@ -594,6 +654,9 @@ void VIC::initVarsAndRegs()
     cntRefreshs    = 0;
     rasterline     = 0;
     charset        = chrom;
+
+    wstart = 0x33;
+    wend = 0xfb;
 }
 
 void VIC::initLCDController()
@@ -633,7 +696,8 @@ uint8_t VIC::nextRasterline()
     rasterline++;
     if (rasterline > 311) {
         rasterline = 0;
-        if (vicreg[0x11] & 16) {
+        // Implements screen wide blanking via DEN
+        if (vicreg[0x11] & 0x10) {
             screenblank = false;
         } else {
             screenblank = true;
@@ -650,30 +714,52 @@ uint8_t VIC::nextRasterline()
         }
     }
     // badline?
-    if (((vicreg[0x11] & 7) == (raster7 & 7)) && (raster7 >= 0x30) && (raster7 <= 0xf7) && (vicreg[0x11] & 16)) {
-        return 40; // Bad line: VIC will steal 40 cycles from CPU
+    if (((vicreg[0x11] & 7) == (raster7 & 7)) && (raster7 >= 0x33) && (raster7 <= 0xfb) && (vicreg[0x11] & 16)) {
+        return 40;  // Bad line: VIC will steal 40 cycles from CPU
     }
     return 0;
 }
 
+void VIC::screenHeight() {
+    uint8_t rsel = vicreg[0x11] & 0x08;
+    // https://codebase64.org/doku.php?id=base:visible_area
+
+    if (rsel == 0) {
+        wstart = 0x32;
+        wend = 0xf2;
+    } else {
+        wstart = 0x32;
+        wend = 0xfa;
+    }
+}
+
 void IRAM_ATTR VIC::drawRasterline()
 {
+    static bool active_area = false;
+
     uint16_t line = rasterline;
-    if ((line >= 0x30) && (line <= 0xf7)) {
-        uint8_t dline = line - 0x30;
-        if (screenblank) {
+    if ((line >= 0x32) && (line <= 0xf9)) {
+        if (line == wstart) {
+            active_area = true;
+        }
+        if (line == wend) {
+            active_area = false;
+        }
+
+        uint8_t dline = line - 0x32;
+        if (screenblank || !active_area) {
             drawblankline(dline);
             return;
         }
         uint8_t d011   = vicreg[0x11];
         uint8_t deltay = d011 & 7;
-        memset(spritedatacoll, false, sizeof(bool) * sizeof(spritedatacoll));
+        memset(spritedatacoll, false, sizeof(spritedatacoll));
         uint8_t d016   = vicreg[0x16];
         uint8_t deltax = d016 & 7;
-        bool    den    = d011 & 16; // Display enable
-        bool    bmm    = d011 & 32; // Bitmap mode
-        bool    ecm    = d011 & 64; // Extended color mode
-        bool    mcm    = d016 & 16; // Multicolor mode
+        bool    den    = d011 & 16;  // Display enable
+        bool    bmm    = d011 & 32;  // Bitmap mode
+        bool    ecm    = d011 & 64;  // Extended color mode
+        bool    mcm    = d016 & 16;  // Multicolor mode
         if (!den) {
             drawblankline(dline);
             return;

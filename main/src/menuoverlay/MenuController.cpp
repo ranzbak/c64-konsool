@@ -60,7 +60,7 @@ void MenuController::render()
         switch (item.type) {
             case MenuItemType::TOGGLE: {
                 bool checked = menuDataStore->getBool(item.value_name, false);
-                title        = ("--> " + item.title + (checked ? "yes" : "no"));
+                title        = ("--> " + item.title + (checked ? "On" : "Off"));
                 break;
             }
             case MenuItemType::SPACER: {

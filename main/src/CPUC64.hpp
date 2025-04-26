@@ -24,6 +24,7 @@
 #include "VIC.hpp"
 #include <cstdint>
 #include <mutex>
+#include "freertos/idf_additions.h"
 #include "menuoverlay/MenuDataStore.hpp"
 
 class C64Emu;
@@ -39,6 +40,9 @@ private:
   MenuDataStore* menuDataStore = MenuDataStore::getInstance();
 
   uint8_t sidreg[0x100];
+
+  // Limit frame rate to ~50Hz
+  SemaphoreHandle_t frameRateMutex;
 
   bool bankARAM;
   bool bankDRAM;
@@ -87,6 +91,7 @@ public:
 
   uint8_t getMem(uint16_t addr) override;
   void setMem(uint16_t addr, uint8_t val) override;
+  SemaphoreHandle_t getFrameRateMutex() { return frameRateMutex; }
 
   uint8_t *getSidRegs();
 

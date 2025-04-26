@@ -69,11 +69,11 @@ void IRAM_ATTR C64Emu::interruptProfilingBatteryCheckFunc()
 
 bool C64Emu::updateTOD(CIA& cia)
 {
-    uint8_t dc08 = cia.latchrundc08.load(std::memory_order_acquire);
+    uint8_t dc08 = cia.latchRunDC08.load(std::memory_order_acquire);
     dc08++;
     if (dc08 > 9) {
         dc08            = 0;
-        uint8_t dc09    = cia.latchrundc09.load(std::memory_order_acquire);
+        uint8_t dc09    = cia.latchRunDC09.load(std::memory_order_acquire);
         uint8_t dc09one = dc09 & 15;
         uint8_t dc09ten = dc09 >> 4;
         dc09one++;
@@ -82,7 +82,7 @@ bool C64Emu::updateTOD(CIA& cia)
             dc09ten++;
             if (dc09ten > 5) {
                 dc09ten         = 0;
-                uint8_t dc0a    = cia.latchrundc0a.load(std::memory_order_acquire);
+                uint8_t dc0a    = cia.latchRunDC0A.load(std::memory_order_acquire);
                 uint8_t dc0aone = dc0a & 15;
                 uint8_t dc0aten = dc0a >> 4;
                 dc0aone++;
@@ -91,7 +91,7 @@ bool C64Emu::updateTOD(CIA& cia)
                     dc0aten++;
                     if (dc0aten > 5) {
                         dc0aten         = 0;
-                        uint8_t dc0b    = cia.latchrundc0b.load(std::memory_order_acquire);
+                        uint8_t dc0b    = cia.latchRunDC0B.load(std::memory_order_acquire);
                         uint8_t dc0bone = dc0b & 15;
                         uint8_t dc0bten = dc0b >> 4;
                         bool    pm      = dc0b & 128;
@@ -104,25 +104,25 @@ bool C64Emu::updateTOD(CIA& cia)
                                 pm      = !pm;
                             }
                         }
-                        cia.latchrundc0b.store(dc0bone | (dc0bten << 4) | (pm ? 127 : 0), std::memory_order_release);
+                        cia.latchRunDC0B.store(dc0bone | (dc0bten << 4) | (pm ? 127 : 0), std::memory_order_release);
                     }
                 }
-                cia.latchrundc0a.store(dc0aone | (dc0aten << 4), std::memory_order_release);
+                cia.latchRunDC0A.store(dc0aone | (dc0aten << 4), std::memory_order_release);
             }
         }
-        cia.latchrundc09.store(dc09one | (dc09ten << 4), std::memory_order_release);
+        cia.latchRunDC09.store(dc09one | (dc09ten << 4), std::memory_order_release);
     }
-    cia.latchrundc08.store(dc08, std::memory_order_release);
-    uint8_t alarmdc08 = cia.latchalarmdc08.load(std::memory_order_acquire);
+    cia.latchRunDC08.store(dc08, std::memory_order_release);
+    uint8_t alarmdc08 = cia.latchAlarmDC08.load(std::memory_order_acquire);
     if (dc08 == alarmdc08) {
-        uint8_t dc09      = cia.latchrundc09.load(std::memory_order_acquire);
-        uint8_t alarmdc09 = cia.latchalarmdc09.load(std::memory_order_acquire);
+        uint8_t dc09      = cia.latchRunDC09.load(std::memory_order_acquire);
+        uint8_t alarmdc09 = cia.latchAlarmDC09.load(std::memory_order_acquire);
         if (dc09 == alarmdc09) {
-            uint8_t dc0a      = cia.latchrundc0a.load(std::memory_order_acquire);
-            uint8_t alarmdc0a = cia.latchalarmdc0a.load(std::memory_order_acquire);
+            uint8_t dc0a      = cia.latchRunDC0A.load(std::memory_order_acquire);
+            uint8_t alarmdc0a = cia.latchAlarmDC0A.load(std::memory_order_acquire);
             if (dc0a == alarmdc0a) {
-                uint8_t dc0b      = cia.latchrundc0b.load(std::memory_order_acquire);
-                uint8_t alarmdc0b = cia.latchalarmdc0b.load(std::memory_order_acquire);
+                uint8_t dc0b      = cia.latchRunDC0B.load(std::memory_order_acquire);
+                uint8_t alarmdc0b = cia.latchAlarmDC0B.load(std::memory_order_acquire);
                 if (dc0b == alarmdc0b) {
                     return true;
                 }

@@ -4,13 +4,12 @@
 #include "C64Emu.hpp"
 #include "DisplayDriver.hpp"
 #include "MainMenu.hpp"
-#include "esp_log.h"
+// #include "esp_log.h"
 #include "menuoverlay/MenuDataStore.hpp"
 #include "menuoverlay/MenuTypes.hpp"
 #include "pax_gfx.h"
-#include "soc/clk_tree_defs.h"
 
-static const char* TAG = "MenuController";
+__attribute__((unused)) static const char* TAG = "MenuController";
 
 MenuController::MenuController()
 {

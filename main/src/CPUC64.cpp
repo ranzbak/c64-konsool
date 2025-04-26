@@ -85,55 +85,55 @@ uint8_t CPUC64::getMem(uint16_t addr) {
             kbjoystickmode = menuDataStore->getInt("kb_joystick_port", 0);
             uint8_t ciaidx = (addr - 0xdc00) % 0x10;
             if (ciaidx == 0x00) {
-                uint8_t ddra  = cia1.ciareg[0x02];
+                uint8_t ddra  = cia1.ciaReg[0x02];
                 uint8_t input = 0xff;
                 if (joystickmode == 2) {
                     // real joystick, but still check for keyboard input
-                    input = c64emu->konsoolkb.getdc01(cia1.ciareg[0x01], true);
+                    input = c64emu->konsoolkb.getdc01(cia1.ciaReg[0x01], true);
                     if (input == 0xff) {
                         // no key pressed -> return joystick value (of real joystick)
                         input = joystick.getValue();
                     }
                 } else if (kbjoystickmode == 2) {
                     // keyboard joystick, but still check for keyboard input
-                    input = c64emu->konsoolkb.getdc01(cia1.ciareg[0x01], true);
+                    input = c64emu->konsoolkb.getdc01(cia1.ciaReg[0x01], true);
                     if (input == 0xff) {
                         // no key pressed -> return joystick value (of keyboard joystick)
                         input = c64emu->konsoolkb.getKBJoyValue(true);
                     }
                 } else {
                     // keyboard
-                    input = c64emu->konsoolkb.getdc01(cia1.ciareg[0x01], true);
+                    input = c64emu->konsoolkb.getdc01(cia1.ciaReg[0x01], true);
                 }
-                return (cia1.ciareg[0x00] | ~ddra) & input;
+                return (cia1.ciaReg[0x00] | ~ddra) & input;
             } else if (ciaidx == 0x01) {
-                uint8_t ddrb  = cia1.ciareg[0x03];
+                uint8_t ddrb  = cia1.ciaReg[0x03];
                 uint8_t input = 0xff;
                 if (joystickmode == 2) {
                     // special case: handle fire2 button -> space key
-                    if ((cia1.ciareg[0x00] == 0x7f) && joystick.getFire2()) {
+                    if ((cia1.ciaReg[0x00] == 0x7f) && joystick.getFire2()) {
                         return 0xef;
                     }
                 }
                 if (joystickmode == 1) {
                     // real joystick, but still check for keyboard input
-                    input = c64emu->konsoolkb.getdc01(cia1.ciareg[0x00], false);
+                    input = c64emu->konsoolkb.getdc01(cia1.ciaReg[0x00], false);
                     if (input == 0xff) {
                         // no key pressed -> return joystick value (of real joystick)
                         input = joystick.getValue();
                     }
                 } else if (kbjoystickmode == 1) {
                     // keyboard joystick, but still check for keyboard input
-                    input = c64emu->konsoolkb.getdc01(cia1.ciareg[0x00], false);
+                    input = c64emu->konsoolkb.getdc01(cia1.ciaReg[0x00], false);
                     if (input == 0xff) {
                         // no key pressed -> return joystick value (of keyboard joystick)
                         input = c64emu->konsoolkb.getKBJoyValue(false);
                     }
                 } else {
                     // keyboard
-                    input = c64emu->konsoolkb.getdc01(cia1.ciareg[0x00], false);
+                    input = c64emu->konsoolkb.getdc01(cia1.ciaReg[0x00], false);
                 }
-                return (cia1.ciareg[0x01] | ~ddrb) & input;
+                return (cia1.ciaReg[0x01] | ~ddrb) & input;
             }
             return cia1.getCommonCIAReg(ciaidx);
         }
@@ -141,11 +141,11 @@ uint8_t CPUC64::getMem(uint16_t addr) {
         else if (addr <= 0xddff) {
             uint8_t ciaidx = (addr - 0xdd00) % 0x10;
             if (ciaidx == 0x00) {
-                uint8_t ddra = cia2.ciareg[0x02];
-                return cia2.ciareg[0x00] | ~ddra;
+                uint8_t ddra = cia2.ciaReg[0x02];
+                return cia2.ciaReg[0x00] | ~ddra;
             } else if (ciaidx == 0x01) {
-                uint8_t ddrb = cia2.ciareg[0x03];
-                return cia2.ciareg[0x01] | ~ddrb;
+                uint8_t ddrb = cia2.ciaReg[0x03];
+                return cia2.ciaReg[0x01] | ~ddrb;
             } else if (ciaidx == 0x0d) {
                 nmiAck = true;
             }
@@ -288,11 +288,11 @@ void CPUC64::setMem(uint16_t addr, uint8_t val) {
         else if (addr <= 0xdcff) {
             uint8_t ciaidx = (addr - 0xdc00) % 0x10;
             if (ciaidx == 0x00) {
-                uint8_t ddra        = cia1.ciareg[0x02];
-                cia1.ciareg[ciaidx] = (cia1.ciareg[ciaidx] & ~ddra) | (val & ddra);
+                uint8_t ddra        = cia1.ciaReg[0x02];
+                cia1.ciaReg[ciaidx] = (cia1.ciaReg[ciaidx] & ~ddra) | (val & ddra);
             } else if (ciaidx == 0x01) {
-                uint8_t ddrb        = cia1.ciareg[0x03];
-                cia1.ciareg[ciaidx] = (cia1.ciareg[ciaidx] & ~ddrb) | (val & ddrb);
+                uint8_t ddrb        = cia1.ciaReg[0x03];
+                cia1.ciaReg[ciaidx] = (cia1.ciaReg[ciaidx] & ~ddrb) | (val & ddrb);
             } else {
                 cia1.setCommonCIAReg(ciaidx, val);
             }
@@ -316,7 +316,7 @@ void CPUC64::setMem(uint16_t addr, uint8_t val) {
                         vic->vicmem = 0x0000;
                         break;
                 }
-                cia2.ciareg[ciaidx] = 0x94 | bank;
+                cia2.ciaReg[ciaidx] = 0x94 | bank;
                 // adapt VIC base addresses
                 adaptVICBaseAddrs(true);
             } else {
@@ -379,49 +379,49 @@ void CPUC64::checkciatimers(uint8_t cycles) {
     // CIA 1 TOD alarm
     cia1.checkAlarm();
     // check for CIA 1 TOD alarm interrupt
-    if (((cia1.latchdc0d & 0x84) == 0x84) && (!iflag)) {
+    if (((cia1.latchDC0D & 0x84) == 0x84) && (!iflag)) {
         setPCToIntVec(getMem(0xfffe) + (getMem(0xffff) << 8), false);
     }
     // CIA 1 Timer A
     cia1.checkTimerA(cycles);
     // check for CIA 1 Timer A interrupt
-    if (((cia1.latchdc0d & 0x81) == 0x81) && (!iflag)) {
+    if (((cia1.latchDC0D & 0x81) == 0x81) && (!iflag)) {
         setPCToIntVec(getMem(0xfffe) + (getMem(0xffff) << 8), false);
     }
     // CIA 1 Timer B
     cia1.checkTimerB(cycles);
     // check for CIA 1 Timer B interrupt
-    if (((cia1.latchdc0d & 0x82) == 0x82) && (!iflag)) {
+    if (((cia1.latchDC0D & 0x82) == 0x82) && (!iflag)) {
         setPCToIntVec(getMem(0xfffe) + (getMem(0xffff) << 8), false);
     }
     // check for CIA 1 SDR interrupt
-    if (((cia1.latchdc0d & 0x88) == 0x88) && (!iflag)) {
+    if (((cia1.latchDC0D & 0x88) == 0x88) && (!iflag)) {
         setPCToIntVec(getMem(0xfffe) + (getMem(0xffff) << 8), false);
     }
     if (!deactivateCIA2) {
         // CIA 2 TOD alarm
         cia2.checkAlarm();
         // check for CIA 2 TOD alarm interrupt
-        if (((cia2.latchdc0d & 0x84) == 0x84) && nmiAck) {
+        if (((cia2.latchDC0D & 0x84) == 0x84) && nmiAck) {
             nmiAck = false;
             setPCToIntVec(getMem(0xfffa) + (getMem(0xfffb) << 8), false);
         }
         // CIA 2 Timer A
         cia2.checkTimerA(cycles);
         // check for CIA 2 Timer A interrupt
-        if (((cia2.latchdc0d & 0x81) == 0x81) && nmiAck) {
+        if (((cia2.latchDC0D & 0x81) == 0x81) && nmiAck) {
             nmiAck = false;
             setPCToIntVec(getMem(0xfffa) + (getMem(0xfffb) << 8), false);
         }
         // CIA 2 Timer B
         cia2.checkTimerB(cycles);
         // check for CIA 2 Timer B interrupt
-        if (((cia2.latchdc0d & 0x82) == 0x82) && nmiAck) {
+        if (((cia2.latchDC0D & 0x82) == 0x82) && nmiAck) {
             nmiAck = false;
             setPCToIntVec(getMem(0xfffa) + (getMem(0xfffb) << 8), false);
         }
         // check for CIA 2 SDR interrupt
-        if (((cia2.latchdc0d & 0x88) == 0x88) && nmiAck) {
+        if (((cia2.latchDC0D & 0x88) == 0x88) && nmiAck) {
             nmiAck = false;
             setPCToIntVec(getMem(0xfffa) + (getMem(0xfffb) << 8), false);
         }
@@ -438,7 +438,6 @@ void CPUC64::logDebugInfo() {
 }
 
 void IRAM_ATTR CPUC64::run() {
-    static int32_t wait_counter = 0;
     // pc *must* be set externally!
     cpuhalted             = false;
     debug                 = false;
@@ -521,25 +520,6 @@ void IRAM_ATTR CPUC64::run() {
         if (vic->rasterline == 311) {
             xSemaphoreTake(frameRateMutex, 1000);
         }
-        // TODO: use frame rate control
-        #if 0
-        numofcyclespersecond += numofcycles;
-        measuredcycles.fetch_add(numofcycles, std::memory_order_release);
-        
-        uint16_t adjustcyclestmp = adjustcycles.load(std::memory_order_acquire);
-        int64_t sleeptime       = 0;
-        
-
-        if (adjustcyclestmp > 0) {
-            presleeptime = esp_timer_get_time();
-            if(adjustcyclestmp + wait_counter > 0) {
-                vTaskDelay(((adjustcyclestmp + wait_counter) >> 10) / portTICK_PERIOD_MS);  // ms sleep
-            }
-            sleeptime = adjustcyclestmp - (esp_timer_get_time() - presleeptime);
-            wait_counter += sleeptime;
-            adjustcycles.store(0, std::memory_order_release);
-        }
-        #endif
     }
 }
 

@@ -27,30 +27,30 @@
 
 class CIA {
 public:
-  uint8_t ciareg[0x10];
+  uint8_t ciaReg[0x10];
 
   bool underflowTimerA;
-  uint8_t serbitnr;
-  uint8_t serbitnrnext;
-  uint8_t latchdc04;
-  uint8_t latchdc05;
-  uint8_t latchdc06;
-  uint8_t latchdc07;
-  uint8_t latchdc0d; // read latch register
+  uint8_t serBitNR;
+  uint8_t serBitNRNext;
+  uint8_t latchDC04;
+  uint8_t latchDC05;
+  uint8_t latchDC06;
+  uint8_t latchDC07;
+  uint8_t latchDC0D; // read latch register
   uint16_t timerA;
   uint16_t timerB;
 
   std::atomic<bool> isTODRunning;
   bool isTODFreezed;
   std::atomic<bool> isAlarm;
-  std::atomic<uint8_t> latchrundc08; // TOD running
-  std::atomic<uint8_t> latchrundc09;
-  std::atomic<uint8_t> latchrundc0a;
-  std::atomic<uint8_t> latchrundc0b;
-  std::atomic<uint8_t> latchalarmdc08; // set alarm
-  std::atomic<uint8_t> latchalarmdc09;
-  std::atomic<uint8_t> latchalarmdc0a;
-  std::atomic<uint8_t> latchalarmdc0b;
+  std::atomic<uint8_t> latchRunDC08; // TOD running
+  std::atomic<uint8_t> latchRunDC09;
+  std::atomic<uint8_t> latchRunDC0A;
+  std::atomic<uint8_t> latchRunDC0B;
+  std::atomic<uint8_t> latchAlarmDC08; // set alarm
+  std::atomic<uint8_t> latchAlarmDC09;
+  std::atomic<uint8_t> latchAlarmDC0A;
+  std::atomic<uint8_t> latchAlarmDC0B;
 
   CIA(bool isCIA1);
   void init(bool isCIA1);

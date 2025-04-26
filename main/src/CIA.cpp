@@ -21,15 +21,15 @@
 void CIA::checkAlarm() {
     if (isAlarm.load(std::memory_order_acquire)) {
         isAlarm.store(false, std::memory_order_release);
-        latchdc0d |= 0x04;
-        if (ciareg[0x0d] & 4) {
-            latchdc0d |= 0x80;
+        latchDC0D |= 0x04;
+        if (ciaReg[0x0d] & 4) {
+            latchDC0D |= 0x80;
         }
     }
 }
 
 void CIA::checkTimerA(uint8_t deltaT) {
-    uint8_t reg0e = ciareg[0x0e];
+    uint8_t reg0e = ciaReg[0x0e];
     if (!(reg0e & 1)) {
         // timer stopped
         return;
@@ -44,29 +44,29 @@ void CIA::checkTimerA(uint8_t deltaT) {
         underflowTimerA = true;
         if (reg0e & 0x02) {
             if (!(reg0e & 0x04)) {
-                ciareg[0x01] ^= 0x40;
+                ciaReg[0x01] ^= 0x40;
             }
             // ignore "toggle bit for one cycle"
         }
-        latchdc0d |= 0x01;
+        latchDC0D |= 0x01;
         if (!(reg0e & 8)) {
-            timerA = (latchdc05 << 8) + latchdc04;
+            timerA = (latchDC05 << 8) + latchDC04;
         } else {
-            ciareg[0x0e] &= 0xfe;
+            ciaReg[0x0e] &= 0xfe;
         }
-        if (ciareg[0x0d] & 1) {
-            latchdc0d |= 0x80;
+        if (ciaReg[0x0d] & 1) {
+            latchDC0D |= 0x80;
         }
-        if ((ciareg[0x0e] & 0x40) && (serbitnr != 0)) {
-            serbitnr--;
-            if (serbitnr == 0) {
-                latchdc0d |= 0x08;
-                if (ciareg[0x0d] & 8) {
-                    latchdc0d |= 0x80;
+        if ((ciaReg[0x0e] & 0x40) && (serBitNR != 0)) {
+            serBitNR--;
+            if (serBitNR == 0) {
+                latchDC0D |= 0x08;
+                if (ciaReg[0x0d] & 8) {
+                    latchDC0D |= 0x80;
                 }
-                if (serbitnrnext != 0) {
-                    serbitnr     = serbitnrnext;
-                    serbitnrnext = 0;
+                if (serBitNRNext != 0) {
+                    serBitNR     = serBitNRNext;
+                    serBitNRNext = 0;
                 }
             }
         }
@@ -74,12 +74,12 @@ void CIA::checkTimerA(uint8_t deltaT) {
 }
 
 void CIA::checkTimerB(uint8_t deltaT) {
-    uint8_t reg0f = ciareg[0x0f];
+    uint8_t reg0f = ciaReg[0x0f];
     if (!(reg0f & 1)) {
         // timer stopped
         return;
     }
-    uint8_t bit56 = ciareg[0x0f] & 0x60;
+    uint8_t bit56 = ciaReg[0x0f] & 0x60;
     if (bit56 == 0) {
         int32_t tmp = timerB - deltaT;
         timerB      = (tmp < 0) ? 0 : tmp;
@@ -94,58 +94,58 @@ void CIA::checkTimerB(uint8_t deltaT) {
     if (timerB == 0) {
         if (reg0f & 0x02) {
             if (!(reg0f & 0x04)) {
-                ciareg[0x01] ^= 0x80;
+                ciaReg[0x01] ^= 0x80;
             }
             // ignore "toggle bit for one cycle"
         }
-        latchdc0d |= 0x02;
+        latchDC0D |= 0x02;
         if (!(reg0f & 8)) {
-            timerB = (latchdc07 << 8) + latchdc06;
+            timerB = (latchDC07 << 8) + latchDC06;
         } else {
-            ciareg[0x0f] &= 0xfe;
+            ciaReg[0x0f] &= 0xfe;
         }
-        if (ciareg[0x0d] & 2) {
-            latchdc0d |= 0x80;
+        if (ciaReg[0x0d] & 2) {
+            latchDC0D |= 0x80;
         }
     }
 }
 
 void CIA::init(bool isCIA1) {
     for (uint8_t i = 0; i < 0x10; i++) {
-        ciareg[i] = 0;
+        ciaReg[i] = 0;
     }
 
     underflowTimerA = false;
-    serbitnr        = 0;
-    serbitnrnext    = 0;
-    latchdc04       = 0;
-    latchdc05       = 0;
-    latchdc06       = 0;
-    latchdc07       = 0;
-    latchdc0d       = 0;
+    serBitNR        = 0;
+    serBitNRNext    = 0;
+    latchDC04       = 0;
+    latchDC05       = 0;
+    latchDC06       = 0;
+    latchDC07       = 0;
+    latchDC0D       = 0;
     timerA          = 0;
     timerB          = 0;
 
     isTODRunning.store(false, std::memory_order_release);
     isTODFreezed = false;
     isAlarm.store(false, std::memory_order_release);
-    latchrundc08.store(0, std::memory_order_release);
-    latchrundc09.store(0, std::memory_order_release);
-    latchrundc0a.store(0, std::memory_order_release);
-    latchrundc0b.store(0, std::memory_order_release);
-    latchalarmdc08.store(0, std::memory_order_release);
-    latchalarmdc09.store(0, std::memory_order_release);
-    latchalarmdc0a.store(0, std::memory_order_release);
-    latchalarmdc0b.store(0, std::memory_order_release);
+    latchRunDC08.store(0, std::memory_order_release);
+    latchRunDC09.store(0, std::memory_order_release);
+    latchRunDC0A.store(0, std::memory_order_release);
+    latchRunDC0B.store(0, std::memory_order_release);
+    latchAlarmDC08.store(0, std::memory_order_release);
+    latchAlarmDC09.store(0, std::memory_order_release);
+    latchAlarmDC0A.store(0, std::memory_order_release);
+    latchAlarmDC0B.store(0, std::memory_order_release);
 
     if (isCIA1) {
-        ciareg[0] = 127;
-        ciareg[1] = 255;
-        ciareg[2] = 255;
+        ciaReg[0] = 127;
+        ciaReg[1] = 255;
+        ciaReg[2] = 255;
     } else {
-        ciareg[0] = 151;
-        ciareg[1] = 255;
-        ciareg[2] = 63;
+        ciaReg[0] = 151;
+        ciaReg[1] = 255;
+        ciaReg[2] = 63;
     }
 }
 
@@ -153,123 +153,123 @@ CIA::CIA(bool isCIA1) {
     init(isCIA1);
 }
 
-uint8_t CIA::getCommonCIAReg(uint8_t ciaidx) {
-    if (ciaidx == 0x04) {
+uint8_t CIA::getCommonCIAReg(uint8_t ciaIdx) {
+    if (ciaIdx == 0x04) {
         return timerA & 0xff;
-    } else if (ciaidx == 0x05) {
+    } else if (ciaIdx == 0x05) {
         return (timerA >> 8) & 0xff;
-    } else if (ciaidx == 0x06) {
+    } else if (ciaIdx == 0x06) {
         return timerB & 0xff;
-    } else if (ciaidx == 0x07) {
+    } else if (ciaIdx == 0x07) {
         return (timerB >> 8) & 0xff;
-    } else if (ciaidx == 0x08) {
+    } else if (ciaIdx == 0x08) {
         uint8_t val;
         if (isTODFreezed) {
-            val = ciareg[ciaidx];
+            val = ciaReg[ciaIdx];
         } else {
-            val = latchrundc08.load(std::memory_order_acquire);
+            val = latchRunDC08.load(std::memory_order_acquire);
         }
         isTODFreezed = false;
         return val;
-    } else if (ciaidx == 0x09) {
+    } else if (ciaIdx == 0x09) {
         if (isTODFreezed) {
-            return ciareg[ciaidx];
+            return ciaReg[ciaIdx];
         } else {
-            return latchrundc09.load(std::memory_order_acquire);
+            return latchRunDC09.load(std::memory_order_acquire);
         }
-    } else if (ciaidx == 0x0a) {
+    } else if (ciaIdx == 0x0a) {
         if (isTODFreezed) {
-            return ciareg[ciaidx];
+            return ciaReg[ciaIdx];
         } else {
-            return latchrundc0a.load(std::memory_order_acquire);
+            return latchRunDC0A.load(std::memory_order_acquire);
         }
-    } else if (ciaidx == 0x0b) {
+    } else if (ciaIdx == 0x0b) {
         isTODFreezed = true;
-        ciareg[0x08] = latchrundc08.load(std::memory_order_acquire);
-        ciareg[0x09] = latchrundc09.load(std::memory_order_acquire);
-        ciareg[0x0a] = latchrundc0a.load(std::memory_order_acquire);
-        ciareg[0x0b] = latchrundc0b.load(std::memory_order_acquire);
-        return ciareg[ciaidx];
-    } else if (ciaidx == 0x0d) {
-        uint8_t val = latchdc0d;
-        latchdc0d   = 0;
+        ciaReg[0x08] = latchRunDC08.load(std::memory_order_acquire);
+        ciaReg[0x09] = latchRunDC09.load(std::memory_order_acquire);
+        ciaReg[0x0a] = latchRunDC0A.load(std::memory_order_acquire);
+        ciaReg[0x0b] = latchRunDC0B.load(std::memory_order_acquire);
+        return ciaReg[ciaIdx];
+    } else if (ciaIdx == 0x0d) {
+        uint8_t val = latchDC0D;
+        latchDC0D   = 0;
         return val;
     } else {
-        return ciareg[ciaidx];
+        return ciaReg[ciaIdx];
     }
 }
 
-void CIA::setCommonCIAReg(uint8_t ciaidx, uint8_t val) {
-    if (ciaidx == 0x04) {
-        latchdc04 = val;
-    } else if (ciaidx == 0x05) {
-        latchdc05 = val;
+void CIA::setCommonCIAReg(uint8_t ciaIdx, uint8_t val) {
+    if (ciaIdx == 0x04) {
+        latchDC04 = val;
+    } else if (ciaIdx == 0x05) {
+        latchDC05 = val;
         // timerA stopped? if yes, write timerA
-        if (!(ciareg[0x0e] & 1)) {
-            timerA = (latchdc05 << 8) + latchdc04;
+        if (!(ciaReg[0x0e] & 1)) {
+            timerA = (latchDC05 << 8) + latchDC04;
         }
-    } else if (ciaidx == 0x06) {
-        latchdc06 = val;
-    } else if (ciaidx == 0x07) {
-        latchdc07 = val;
+    } else if (ciaIdx == 0x06) {
+        latchDC06 = val;
+    } else if (ciaIdx == 0x07) {
+        latchDC07 = val;
         // timerB stopped? if yes, write timerB
-        if (!(ciareg[0x0f] & 1)) {
-            timerB = (latchdc07 << 8) + latchdc06;
+        if (!(ciaReg[0x0f] & 1)) {
+            timerB = (latchDC07 << 8) + latchDC06;
         }
-    } else if (ciaidx == 0x08) {
-        if (ciareg[0x0f] & 128) {
-            latchalarmdc08.store(val, std::memory_order_release);
+    } else if (ciaIdx == 0x08) {
+        if (ciaReg[0x0f] & 128) {
+            latchAlarmDC08.store(val, std::memory_order_release);
         } else {
-            ciareg[0x08] = val;
-            latchrundc08.store(val, std::memory_order_release);
-            latchrundc09.store(ciareg[0x09], std::memory_order_release);
-            latchrundc0a.store(ciareg[0x0a], std::memory_order_release);
-            latchrundc0b.store(ciareg[0x0b], std::memory_order_release);
+            ciaReg[0x08] = val;
+            latchRunDC08.store(val, std::memory_order_release);
+            latchRunDC09.store(ciaReg[0x09], std::memory_order_release);
+            latchRunDC0A.store(ciaReg[0x0a], std::memory_order_release);
+            latchRunDC0B.store(ciaReg[0x0b], std::memory_order_release);
         }
         isTODRunning.store(true, std::memory_order_release);
-    } else if (ciaidx == 0x09) {
-        if (ciareg[0x0f] & 128) {
-            latchalarmdc09.store(val, std::memory_order_release);
+    } else if (ciaIdx == 0x09) {
+        if (ciaReg[0x0f] & 128) {
+            latchAlarmDC09.store(val, std::memory_order_release);
         } else {
-            ciareg[0x09] = val;
+            ciaReg[0x09] = val;
         }
-    } else if (ciaidx == 0x0a) {
-        if (ciareg[0x0f] & 128) {
-            latchalarmdc0a.store(val, std::memory_order_release);
+    } else if (ciaIdx == 0x0a) {
+        if (ciaReg[0x0f] & 128) {
+            latchAlarmDC0A.store(val, std::memory_order_release);
         } else {
-            ciareg[0x0a] = val;
+            ciaReg[0x0a] = val;
         }
-    } else if (ciaidx == 0x0b) {
+    } else if (ciaIdx == 0x0b) {
         isTODRunning.store(false, std::memory_order_release);
-        if (ciareg[0x0f] & 128) {
-            latchalarmdc0b.store(val, std::memory_order_release);
+        if (ciaReg[0x0f] & 128) {
+            latchAlarmDC0B.store(val, std::memory_order_release);
         } else {
-            ciareg[0x0b] = val;
+            ciaReg[0x0b] = val;
         }
-    } else if (ciaidx == 0x0c) {
-        if (serbitnr == 0) {
-            serbitnr = 8;
+    } else if (ciaIdx == 0x0c) {
+        if (serBitNR == 0) {
+            serBitNR = 8;
         } else {
-            serbitnrnext = 8;
+            serBitNRNext = 8;
         }
-        ciareg[ciaidx] = val;
-    } else if (ciaidx == 0x0d) {
+        ciaReg[ciaIdx] = val;
+    } else if (ciaIdx == 0x0d) {
         if (val & 0x80) {
-            ciareg[ciaidx] |= val;
+            ciaReg[ciaIdx] |= val;
         } else {
-            ciareg[ciaidx] &= ~(val | 0x80);
+            ciaReg[ciaIdx] &= ~(val | 0x80);
         }
-    } else if (ciaidx == 0x0e) {
-        ciareg[ciaidx] = val;
+    } else if (ciaIdx == 0x0e) {
+        ciaReg[ciaIdx] = val;
         if (val & 0x10) {
-            timerA = (latchdc05 << 8) + latchdc04;
+            timerA = (latchDC05 << 8) + latchDC04;
         }
-    } else if (ciaidx == 0x0f) {
-        ciareg[ciaidx] = val;
+    } else if (ciaIdx == 0x0f) {
+        ciaReg[ciaIdx] = val;
         if (val & 0x10) {
-            timerB = (latchdc07 << 8) + latchdc06;
+            timerB = (latchDC07 << 8) + latchDC06;
         }
     } else {
-        ciareg[ciaidx] = val;
+        ciaReg[ciaIdx] = val;
     }
 }

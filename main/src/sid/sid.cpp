@@ -14,7 +14,7 @@
 
 typedef uint8_t byte;
 
-const uint8_t FILTSW[9]           = {1, 2, 4, 1, 2, 4, 1, 2, 4};
+const uint8_t FILTSW[9] = {1, 2, 4, 1, 2, 4, 1, 2, 4};
 
 // sample output buffer
 int16_t  sample_buffer[SAMPLE_BUFFER_SIZE];
@@ -133,11 +133,12 @@ void SID::raster_line()
 }
 
 // Based on Schraudolph's "A Fast, Compact Approximation of the Exponential Function"
-float fast_exp(float x) {          // e^x
+float fast_exp(float x)
+{  // e^x
     // valid range -104.0 < x < 88.0
     int32_t i = int32_t(12102203 * x + 1065353216);
-    float  y;
-    memcpy(&y, &i, sizeof y); // avoid UB
+    float   y;
+    memcpy(&y, &i, sizeof y);  // avoid UB
     return y;
 }
 
@@ -158,11 +159,11 @@ int SID::cycle(unsigned char num,
 {
     // better keep these variables static so they won't slow down the routine like if they were internal automatic
     // variables always recreated
-    static byte         channel, ctrl, SR, prevgate, wf, test, *sReg, *vReg;
-    static unsigned int accuadd, MSB, pw, wfout;
-    static int          step, lim, nonfilt, filtin, filtout, output;
-    static int          tmp;
-    static float        period, steep, rDS_VCR_FET, cutoff[3], resonance[3], ftmp;
+    static byte     channel, ctrl, SR, prevgate, wf, test, *sReg, *vReg;
+    static uint32_t accuadd, MSB, pw, wfout;
+    static int32_t  step, lim, nonfilt, filtin, filtout, output;
+    static int32_t  tmp;
+    static float    period, steep, rDS_VCR_FET, cutoff[3], resonance[3], ftmp;
 
     filtin = nonfilt = 0;
     sReg             = &memory[baseaddr];
@@ -170,10 +171,11 @@ int SID::cycle(unsigned char num,
 
     // treating 2SID and 3SID channels uniformly (0..5 / 0..8), this probably avoids some extra code
     for (channel = num * SID_CHANNEL_AMOUNT; channel < (num + 1) * SID_CHANNEL_AMOUNT; channel++, vReg += 7) {
-        ctrl = vReg[4]; // SID channel control register ([7]NSE, [6]PUL, [5]SAW, [4]TRI, [3] test, [2] ring voice 3, [1] sync voice 3, [0] gate)
+        ctrl = vReg[4];  // SID channel control register ([7]NSE, [6]PUL, [5]SAW, [4]TRI, [3] test, [2] ring voice 3,
+                         // [1] sync voice 3, [0] gate)
 
         // ADSR envelope-generator:
-        SR       = vReg[6]; // Sustain / release register ([7:4] Sustain, [3:0] Release)
+        SR       = vReg[6];  // Sustain / release register ([7:4] Sustain, [3:0] Release)
         tmp      = 0;
         prevgate = (ADSRstate[channel] & GATE_BITMASK);
         if (prevgate != (ctrl & GATE_BITMASK)) {  // gatebit-change?
@@ -200,7 +202,7 @@ int SID::cycle(unsigned char num,
             step = vReg[5] >> 4;
         else if (ADSRstate[channel] & DECAYSUSTAIN_BITMASK)
             step = vReg[5] & 0x0F;
-        else // Step is release
+        else  // Step is release
             step = SR & 0x0F;
         period = ADSRperiods[step];
         step   = ADSRstep[step];
@@ -299,7 +301,8 @@ int SID::cycle(unsigned char num,
                 }  // falling edge
             } else {  // combined pulse
                 wfout = (tmp >= pw || test)
-                            ? 0xFFFF : 0;  //(this would be enough for a simple but aliased-at-high-pitches pulse)
+                            ? 0xFFFF
+                            : 0;  //(this would be enough for a simple but aliased-at-high-pitches pulse)
                 if (wf & TRI_BITMASK) {
                     if (wf & SAW_BITMASK) {
                         wfout = wfout ? combinedWF(num, channel, PulseTriSaw_8580, tmp >> 4, 1, vReg[1]) : 0;
@@ -371,7 +374,7 @@ int SID::cycle(unsigned char num,
     // cutoff-frequency with 1.5MOhm.)
     cutoff[num] = sReg[0x16] * 8 + (sReg[0x15] & 0x07);
     if (SID_model[num] == 8580) {
-        cutoff[num]    = (1 - fast_exp(((cutoff[num]) + 2) * CUTOFF_RATIO_8580));  // linear curve by resistor-ladder VCR
+        cutoff[num] = (1 - fast_exp(((cutoff[num]) + 2) * CUTOFF_RATIO_8580));  // linear curve by resistor-ladder VCR
         // resonance[num] = ( powf(2, ((4 - (sReg[0x17] >> 4)) / 8.0)) );
         resonance[num] = resonance_table[sReg[0x17] >> 4];
     } else {  // 6581
@@ -385,8 +388,9 @@ int SID::cycle(unsigned char num,
                       (cutoff[num] -
                        VCR_FET_TRESHOLD);  // rDS ~ (-Vth*rDSon) / (Vgs-Vth)  //above Vth FET drain-source resistance is
                                            // proportional to reciprocal of cutoff-control voltage
-        cutoff[num] = (1 - fast_exp(cap_6581_reciprocal / (VCR_SHUNT_6581 * rDS_VCR_FET / (VCR_SHUNT_6581 + rDS_VCR_FET)) /
-                               DEFAULT_SAMPLERATE));  // curve with 1.5MOhm VCR parallel Rshunt emulation
+        cutoff[num] =
+            (1 - fast_exp(cap_6581_reciprocal / (VCR_SHUNT_6581 * rDS_VCR_FET / (VCR_SHUNT_6581 + rDS_VCR_FET)) /
+                          DEFAULT_SAMPLERATE));  // curve with 1.5MOhm VCR parallel Rshunt emulation
         resonance[num] = ((sReg[0x17] > 0x5F) ? 8.0 / (sReg[0x17] >> 4) : 1.41);
     }
     filtout = 0;
@@ -396,7 +400,7 @@ int SID::cycle(unsigned char num,
     prevbandpass[num] = ftmp;
     if (sReg[0x18] & BANDPASS_BITMASK) filtout -= ftmp;
     // Overflow in lowpass filter caused distortion, so reducing the feedback to prevent overflow
-    ftmp             = prevlowpass[num] * 0.4 + ftmp * cutoff[num];
+    ftmp             = (prevlowpass[num] >> 1) + ftmp * cutoff[num];
     prevlowpass[num] = ftmp;
     if (sReg[0x18] & LOWPASS_BITMASK) filtout += ftmp;
 
@@ -408,7 +412,10 @@ int SID::cycle(unsigned char num,
     // sound distorted anymore, and the volume-clicks disappear when setting SID-volume. (This is useful for fade-in/out
     // tunes like Hades Nebula, where clicking ruins the intro.)
     output = (nonfilt + filtout) * (sReg[0x18] & 0xF) / OUTPUT_SCALEDOWN;
-    if (output>=32767) output=32767; else if (output<=-32768) output=-32768; //saturation logic on overload (not
+    if (output >= 32767)
+        output = 32767;
+    else if (output <= -32768)
+        output = -32768;  // saturation logic on overload (not
     // needed if the callback handles it)
     return (int)output;  // master output
 }

@@ -17,13 +17,14 @@
 */
 #include <cstdint>
 #include "ConfigDisplay.h"
+#include "esp_attr.h"
 #include "sid/sid.hpp"
 
 class VIC {
    private:
     uint8_t*      ram;
     SID*          sid;
-    uint16_t*     bitmap;
+    uint16_t* bitmap;
     uint8_t       spritespritecoll[320];
     bool          spritedatacoll[320];
     uint8_t       startbyte;

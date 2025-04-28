@@ -676,7 +676,9 @@ void VIC::init(uint8_t* ram, uint8_t* charrom, SID* sid)
 
     // allocate bitmap memory to be transfered to LCD
     bitmap       = (uint16_t*)heap_caps_calloc(320 * (200 + 8), sizeof(uint16_t), MALLOC_CAP_DMA | MALLOC_CAP_SPIRAM);
-    bordercolors = (uint16_t*)heap_caps_calloc(200, sizeof(uint16_t), MALLOC_CAP_DMA | MALLOC_CAP_SPIRAM);
+    // field is 200 Active + (50 - 16) + (276 - 250) = 260
+    // Starts at line 16 ends at 276
+    bordercolors = (uint16_t*)heap_caps_calloc(260, sizeof(uint16_t), MALLOC_CAP_DMA | MALLOC_CAP_SPIRAM);
 
     // div init
     colormap                = new uint8_t[1024]();
@@ -737,16 +739,16 @@ void IRAM_ATTR VIC::drawRasterline()
 {
     static bool active_area = false;
 
-    uint16_t line = rasterline;
-    if ((line >= 0x32) && (line <= 0xf9)) {
-        if (line == wstart) {
+    // uint16_t line = rasterline;
+    if ((rasterline >= 0x32) && (rasterline <= 0xf9)) {
+        if (rasterline == wstart) {
             active_area = true;
         }
-        if (line == wend) {
+        if (rasterline == wend) {
             active_area = false;
         }
 
-        uint8_t dline = line - 0x32;
+        uint8_t dline = rasterline - 0x32;
         if (screenblank || !active_area) {
             drawblankline(dline);
             return;
@@ -781,9 +783,14 @@ void IRAM_ATTR VIC::drawRasterline()
                 drawExtBGColCharMode(ram + screenmemstart, bgColArr, dline, deltay - 3, deltax);
             }
         }
-        drawSprites(line + deltay - 3);
+        drawSprites(rasterline + deltay - 3);
+    }
+
+    if ((rasterline >= 16) && (rasterline <= 276)) {
+        uint16_t dline = rasterline - 16;
         bordercolors[dline] = tftColorFromC64ColorArr[vicreg[0x20] & 15];
     }
+
 
     // Update SID chip state
     sid->raster_line();

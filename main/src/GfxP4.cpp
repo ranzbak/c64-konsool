@@ -29,8 +29,8 @@ extern "C" {
 #include "freertos/idf_additions.h"
 }
 #ifdef USE_GFXP4
-#include "HardwareInitializationException.h"
 #include "GfxP4.hpp"
+#include "HardwareInitializationException.h"
 // #include <FreeRTOS.h>
 #include <driver/gpio.h>
 #include <soc/gpio_struct.h>
@@ -56,20 +56,24 @@ static const char* TAG = "GfxP4";
 
 // static uint32_t lu_pinbitmask[256];
 
-void GfxP4::blit(void) {
+void GfxP4::blit(void)
+{
     esp_lcd_panel_draw_bitmap(this->display_lcd_panel, 0, 0, this->display_h_res, this->display_v_res,
                               pax_buf_get_pixels(&this->fb));
 }
 
-void GfxP4::writeCmd(uint8_t cmd) {
+void GfxP4::writeCmd(uint8_t cmd)
+{
     // Write a command to the display
 }
 
-void GfxP4::writeData(uint8_t data) {
+void GfxP4::writeData(uint8_t data)
+{
     // Write a byte of data to the display
 }
 
-void GfxP4::init() {
+void GfxP4::init()
+{
     // Enable backlight
     esp_err_t res = bsp_display_get_panel(&display_lcd_panel);
     ESP_ERROR_CHECK(res);                             // Check that the display handle has been initialized
@@ -143,21 +147,25 @@ void GfxP4::init() {
     GfxP4::fill_config.user_data = NULL;
 }
 
-void GfxP4::copyinit(uint16_t x0, uint16_t y0, uint16_t w, uint16_t h) {
+void GfxP4::copyinit(uint16_t x0, uint16_t y0, uint16_t w, uint16_t h)
+{
     // Start copy on display?? not sure
     // uint16_t x1 = x0 + w - 1;
     // uint16_t y1 = y0 + h - 1;
 }
 
-void GfxP4::copycopy(uint16_t data, uint32_t clearMask) {
+void GfxP4::copycopy(uint16_t data, uint32_t clearMask)
+{
     // Copy data on display ?? not sure
 }
 
-void GfxP4::copyend() {
+void GfxP4::copyend()
+{
     // End copy on display?? not sure
 }
 
-void GfxP4::copyColor(uint16_t x0, uint16_t y0, uint16_t w, uint16_t h, uint16_t data) {
+void GfxP4::copyColor(uint16_t x0, uint16_t y0, uint16_t w, uint16_t h, uint16_t data)
+{
     uint32_t argb = rgb565ToRgb8888(data);
 
     // Make sure the x and y coordinates are switched to rotate the display
@@ -171,7 +179,8 @@ void GfxP4::copyColor(uint16_t x0, uint16_t y0, uint16_t w, uint16_t h, uint16_t
     ppa_do_fill(ppa_fill_handle, &fill_config);
 }
 
-uint32_t GfxP4::rgb565ToRgb8888(uint16_t rgb565) {
+uint32_t GfxP4::rgb565ToRgb8888(uint16_t rgb565)
+{
 
     uint8_t r5 = (rgb565 >> 11) & 0x1F;
     uint8_t g6 = (rgb565 >> 5) & 0x3F;
@@ -184,20 +193,17 @@ uint32_t GfxP4::rgb565ToRgb8888(uint16_t rgb565) {
     return (0xFF << 24) | (r8 << 16) | (g8 << 8) | b8;  // ARGB8888
 }
 
-void IRAM_ATTR GfxP4::drawFrame(uint16_t* frameColors) {
+void IRAM_ATTR GfxP4::drawFrame(uint16_t* frameColors)
+{
 
-    // Top bar
-    GfxP4::copyColor(0, 0, display_v_res, border_height, frameColors[0]);
-    // Bottom bar
-    GfxP4::copyColor(0, vic_v_height + border_height, display_v_res, border_height, frameColors[0]);
     // Left bar
     // Use PPA to rotate and scale the bitmap to the display.
-    active_config.in.buffer              = frameColors;
-    GfxP4::active_config.in.pic_w          = 200;
+    active_config.in.buffer                = frameColors;  // 34 is raster line 50 => 50 - 16
+    GfxP4::active_config.in.pic_w          = 270;
     GfxP4::active_config.in.pic_h          = 1;
     GfxP4::active_config.in.block_w        = 200;
     GfxP4::active_config.in.block_h        = 1;
-    GfxP4::active_config.in.block_offset_x = 0;
+    GfxP4::active_config.in.block_offset_x = 34;
     GfxP4::active_config.in.block_offset_y = 0;
 
     // Initialize output configuration
@@ -213,19 +219,64 @@ void IRAM_ATTR GfxP4::drawFrame(uint16_t* frameColors) {
     GfxP4::active_config.scale_x        = 2.0;
     GfxP4::active_config.scale_y        = border_width;
     ESP_ERROR_CHECK(ppa_do_scale_rotate_mirror(ppa_srm_handle, &active_config));
+
     // Right bar
     GfxP4::active_config.out.block_offset_y = border_width + vic_h_width;  // y_offset;
     ESP_ERROR_CHECK(ppa_do_scale_rotate_mirror(ppa_srm_handle, &active_config));
 
-    // Pax::copyColor(border_width + vic_h_width, 0, border_width, display_h_res, frameColors[0]);
+    // Top bar
+    uint16_t top_border_height      = border_height / 2;
+    uint16_t top_border_start       = 34 - top_border_height;
+    active_config.in.block_w        = top_border_height;
+    active_config.in.block_offset_x = top_border_start;
+
+    active_config.out.block_offset_x = 0;
+
+    // TODO: Put into a function? 
+    active_config.scale_x = 2.0;
+    uint16_t blits_left   = display_v_res;
+    while (blits_left > 0) {
+        if (blits_left >= 255) {
+            active_config.scale_y  = 255;
+            blits_left            -= 255;
+        } else {
+            active_config.scale_y = blits_left;
+            blits_left            = 0;
+        }
+        active_config.out.block_offset_y = blits_left;
+        ESP_ERROR_CHECK(ppa_do_scale_rotate_mirror(ppa_srm_handle, &active_config));
+    }
+
+    // GfxP4::copyColor(0, 0, display_v_res, border_height, frameColors[0]);
+    // Bottom bar
+    uint16_t bottom_border_start    = 32 + 200;
+    active_config.in.block_offset_x = bottom_border_start;
+    active_config.out.block_offset_x = border_height + vic_v_height;
+    active_config.scale_x = 2.0;
+    blits_left            = display_v_res;
+    // TODO: Put into a function? 
+    while (blits_left > 0) {
+        if (blits_left >= 255) {
+            active_config.scale_y  = 255;
+            blits_left            -= 255;
+        } else {
+            active_config.scale_y = blits_left;
+            blits_left            = 0;
+        }
+        active_config.out.block_offset_y = blits_left;
+        ESP_ERROR_CHECK(ppa_do_scale_rotate_mirror(ppa_srm_handle, &active_config));
+    }
 }
 
-void GfxP4::drawMenuOverlay() {
-    active_config.in.buffer               = (uint16_t*)fb.buf_16bpp;
+void GfxP4::drawMenuOverlay()
+{
+    active_config.in.buffer                 = (uint16_t*)fb.buf_16bpp;
     GfxP4::active_config.in.pic_w           = 640;
     GfxP4::active_config.in.pic_h           = 400;
     GfxP4::active_config.in.block_w         = 640;
     GfxP4::active_config.in.block_h         = 400;
+    GfxP4::active_config.in.block_offset_x  = 0;
+    GfxP4::active_config.in.block_offset_y  = 0;
     GfxP4::active_config.out.block_offset_x = border_height;  // x_offset;
     GfxP4::active_config.out.block_offset_y = border_width;   // y_offset;
     GfxP4::active_config.scale_x            = 1.0;
@@ -235,7 +286,8 @@ void GfxP4::drawMenuOverlay() {
     ESP_ERROR_CHECK(ppa_do_scale_rotate_mirror(ppa_srm_handle, &active_config));
 }
 
-void GfxP4::drawBitmap(uint16_t* bitmap) {
+void GfxP4::drawBitmap(uint16_t* bitmap)
+{
     // Overlay the menu if enabled
     if (menu_overlay_enabled) {
         // Draw menu
@@ -271,15 +323,18 @@ void GfxP4::drawBitmap(uint16_t* bitmap) {
     ESP_ERROR_CHECK(esp_lcd_panel_draw_bitmap(display_lcd_panel, 0, 0, display_h_res, display_v_res, raw_fb));
 }
 
-void GfxP4::enableMenuOverlay(bool enable) {
+void GfxP4::enableMenuOverlay(bool enable)
+{
     menu_overlay_enabled = enable;
 }
 
-pax_buf_t* GfxP4::getMenuFb() {
+pax_buf_t* GfxP4::getMenuFb()
+{
     return &fb;
 }
 
-const uint16_t* GfxP4::getC64Colors() const {
+const uint16_t* GfxP4::getC64Colors() const
+{
     return c64Colors;
 }
 #endif

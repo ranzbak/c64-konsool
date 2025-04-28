@@ -4,6 +4,7 @@
 // (based on jsSID, this version has much lower CPU-usage, as mainloop runs at samplerate)
 // License: WTF - Do what the fuck you want with this code, but please mention me as its original author.
 #include "sid.hpp"
+#include <string.h>
 #include <cmath>
 #include <cstdint>
 #include "Config.hpp"
@@ -118,7 +119,8 @@ void SID::raster_line()
     scan_line_sync += (float)SAMPLES_PER_SCAN_LINE;
     // scan_line_sync    += nr_samples;
     while (scan_line_sync > 1.0) {
-        sample_buffer[sample_buffer_pos++] = cycle(0, 0);
+        // baseaddr 0x0000 because the memory presented to the SID is SID the IO area only.
+        sample_buffer[sample_buffer_pos++] = cycle(0, 0x0000);
 
         // When the buffer is full, send the samples to the audio callback
         if (sample_buffer_pos == SAMPLE_BUFFER_SIZE) {
@@ -131,10 +133,12 @@ void SID::raster_line()
 }
 
 // Based on Schraudolph's "A Fast, Compact Approximation of the Exponential Function"
-float fast_exp2(float x) {
-    union { float f; int32_t i; } v;
-    v.i = (int32_t)(12102203 * x + 1065353216); // log2(e) * 2^23
-    return v.f;
+float fast_exp(float x) {          // e^x
+    // valid range -104.0 < x < 88.0
+    int32_t i = int32_t(12102203 * x + 1065353216);
+    float  y;
+    memcpy(&y, &i, sizeof y); // avoid UB
+    return y;
 }
 
 // My SID implementation is similar to what I worked out in a SwinSID variant during 3..4 months of development. (So
@@ -156,7 +160,8 @@ int SID::cycle(unsigned char num,
     // variables always recreated
     static byte         channel, ctrl, SR, prevgate, wf, test, *sReg, *vReg;
     static unsigned int accuadd, MSB, pw, wfout;
-    static int          tmp, step, lim, nonfilt, filtin, filtout, output;
+    static int          step, lim, nonfilt, filtin, filtout, output;
+    static int          tmp;
     static float        period, steep, rDS_VCR_FET, cutoff[3], resonance[3], ftmp;
 
     filtin = nonfilt = 0;
@@ -165,19 +170,19 @@ int SID::cycle(unsigned char num,
 
     // treating 2SID and 3SID channels uniformly (0..5 / 0..8), this probably avoids some extra code
     for (channel = num * SID_CHANNEL_AMOUNT; channel < (num + 1) * SID_CHANNEL_AMOUNT; channel++, vReg += 7) {
-        ctrl = vReg[4];
+        ctrl = vReg[4]; // SID channel control register ([7]NSE, [6]PUL, [5]SAW, [4]TRI, [3] test, [2] ring voice 3, [1] sync voice 3, [0] gate)
 
         // ADSR envelope-generator:
-        SR       = vReg[6];
+        SR       = vReg[6]; // Sustain / release register ([7:4] Sustain, [3:0] Release)
         tmp      = 0;
         prevgate = (ADSRstate[channel] & GATE_BITMASK);
         if (prevgate != (ctrl & GATE_BITMASK)) {  // gatebit-change?
             if (prevgate)
-                ADSRstate[channel] &= 0xFF - (GATE_BITMASK | ATTACK_BITMASK | DECAYSUSTAIN_BITMASK);
+                ADSRstate[channel] &= ~(GATE_BITMASK | ATTACK_BITMASK | DECAYSUSTAIN_BITMASK);
             else {  // falling edge
                 ADSRstate[channel] =
                     (GATE_BITMASK | ATTACK_BITMASK | DECAYSUSTAIN_BITMASK);  // rising edge, also sets hold_zero_bit=0
-                if ((SR & 0xF) > (prevSR[channel] & 0xF))
+                if ((SR & 0x0F) > (prevSR[channel] & 0x0F))
                     tmp =
                         1;  // assume SR->GATE write order: workaround to have crisp soundstarts by triggering delay-bug
             }  //(this is for the possible missed CTRL(GATE) vs SR register write order situations (1MHz CPU is cca 20
@@ -194,9 +199,9 @@ int SID::cycle(unsigned char num,
         if (ADSRstate[channel] & ATTACK_BITMASK)
             step = vReg[5] >> 4;
         else if (ADSRstate[channel] & DECAYSUSTAIN_BITMASK)
-            step = vReg[5] & 0xF;
-        else
-            step = SR & 0xF;
+            step = vReg[5] & 0x0F;
+        else // Step is release
+            step = SR & 0x0F;
         period = ADSRperiods[step];
         step   = ADSRstep[step];
         if (ratecnt[channel] >= period && ratecnt[channel] < period + CLOCK_RATIO &&
@@ -253,7 +258,7 @@ int SID::cycle(unsigned char num,
                                       ((tmp & 0x800) << 1) + ((tmp & 0x200) << 2) + ((tmp & 0x20) << 5) +
                                       ((tmp & 0x04) << 7) + ((tmp & 0x01) << 8);
         } else if (wf & PULSE_BITMASK) {  // simple pulse
-            pw  = (vReg[2] + (vReg[3] & 0xF) * 256) * 16;
+            pw  = (vReg[2] + (vReg[3] & 0x0F) * 256) * 16;
             tmp = (int)accuadd >> 9;
             if (0 < pw && pw < tmp) pw = tmp;
             tmp ^= 0xFFFF;
@@ -294,8 +299,7 @@ int SID::cycle(unsigned char num,
                 }  // falling edge
             } else {  // combined pulse
                 wfout = (tmp >= pw || test)
-                            ? 0xFFFF
-                            : 0;  //(this would be enough for a simple but aliased-at-high-pitches pulse)
+                            ? 0xFFFF : 0;  //(this would be enough for a simple but aliased-at-high-pitches pulse)
                 if (wf & TRI_BITMASK) {
                     if (wf & SAW_BITMASK) {
                         wfout = wfout ? combinedWF(num, channel, PulseTriSaw_8580, tmp >> 4, 1, vReg[1]) : 0;
@@ -365,9 +369,10 @@ int SID::cycle(unsigned char num,
     // cca. 1.53Mohm resistor in parallel with the MOSFET in 6581 which doesn't let the frequency go below 200..220Hz
     // Even if the MOSFET doesn't conduct at all. 470pF capacitors are small, so 6581 can't go below this
     // cutoff-frequency with 1.5MOhm.)
-    cutoff[num] = sReg[0x16] * 8 + (sReg[0x15] & 7);
+    cutoff[num] = sReg[0x16] * 8 + (sReg[0x15] & 0x07);
     if (SID_model[num] == 8580) {
-        cutoff[num]    = (1 - fast_exp2((cutoff[num] + 2) * CUTOFF_RATIO_8580));  // linear curve by resistor-ladder VCR
+        cutoff[num]    = (1 - fast_exp(((cutoff[num]) + 2) * CUTOFF_RATIO_8580));  // linear curve by resistor-ladder VCR
+        // resonance[num] = ( powf(2, ((4 - (sReg[0x17] >> 4)) / 8.0)) );
         resonance[num] = resonance_table[sReg[0x17] >> 4];
     } else {  // 6581
         cutoff[num] +=
@@ -380,7 +385,7 @@ int SID::cycle(unsigned char num,
                       (cutoff[num] -
                        VCR_FET_TRESHOLD);  // rDS ~ (-Vth*rDSon) / (Vgs-Vth)  //above Vth FET drain-source resistance is
                                            // proportional to reciprocal of cutoff-control voltage
-        cutoff[num] = (1 - fast_exp2(cap_6581_reciprocal / (VCR_SHUNT_6581 * rDS_VCR_FET / (VCR_SHUNT_6581 + rDS_VCR_FET)) /
+        cutoff[num] = (1 - fast_exp(cap_6581_reciprocal / (VCR_SHUNT_6581 * rDS_VCR_FET / (VCR_SHUNT_6581 + rDS_VCR_FET)) /
                                DEFAULT_SAMPLERATE));  // curve with 1.5MOhm VCR parallel Rshunt emulation
         resonance[num] = ((sReg[0x17] > 0x5F) ? 8.0 / (sReg[0x17] >> 4) : 1.41);
     }
@@ -390,7 +395,8 @@ int SID::cycle(unsigned char num,
     ftmp              = prevbandpass[num] - ftmp * cutoff[num];
     prevbandpass[num] = ftmp;
     if (sReg[0x18] & BANDPASS_BITMASK) filtout -= ftmp;
-    ftmp             = prevlowpass[num] + ftmp * cutoff[num];
+    // Overflow in lowpass filter caused distortion, so reducing the feedback to prevent overflow
+    ftmp             = prevlowpass[num] * 0.4 + ftmp * cutoff[num];
     prevlowpass[num] = ftmp;
     if (sReg[0x18] & LOWPASS_BITMASK) filtout += ftmp;
 

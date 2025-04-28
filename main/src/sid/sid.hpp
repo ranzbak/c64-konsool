@@ -69,7 +69,8 @@ class SID {
     uint8_t       ADSRstate[9], expcnt[9], prevSR[9], sourceMSBrise[9];
     int16_t       envcnt[9];
     uint32_t      prevwfout[9], prevwavdata[9], sourceMSB[3], noise_LFSR[9];
-    int32_t       phaseaccu[9], prevaccu[9], prevlowpass[3], prevbandpass[3];
+    int32_t       phaseaccu[9];
+    int32_t       prevaccu[9], prevlowpass[3], prevbandpass[3];
     float         ratecnt[9], cutoff_steepness_6581, cap_6581_reciprocal;
     float         clock_ratio = CLOCK_RATIO_DEFAULT;
     uint8_t*      memory;

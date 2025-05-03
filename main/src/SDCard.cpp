@@ -8,21 +8,22 @@
 #include <string>
 #include <vector>
 #include "Config.hpp"
-#include "driver/sdmmc_default_configs.h"
+// #include "driver/sdmmc_default_configs.h"
 #include "driver/sdmmc_host.h"
 #include "driver/sdspi_host.h"
-#include "driver/spi_common.h"
+// #include "driver/spi_common.h"
 #include "esp_err.h"
-#include "esp_intr_types.h"
+// #include "esp_intr_types.h"
 #include "esp_log.h"
 #include "esp_vfs_fat.h"
 #include "hal/ldo_types.h"
-#include "hal/spi_types.h"
+// #include "hal/spi_types.h"
 #include "sd_protocol_types.h"
 #include "sd_pwr_ctrl_by_on_chip_ldo.h"
 #include "sdmmc_cmd.h"
 #include "soc/gpio_num.h"
 #include "targets/tanmatsu/tanmatsu_hardware.h"
+
 
 static const char* TAG = "SDCard";
 
@@ -40,6 +41,7 @@ bool SDCard::init() {
     if (initialized) {
         return true;
     }
+
 
 #if defined(USE_SDCARD)
 
@@ -91,6 +93,23 @@ bool SDCard::init() {
     sdmmc_card_print_info(stdout, mount_card);
 
     ESP_LOGI(TAG, "SDcard initialized");
+
+    // Make sure the C64PRG directory exists if it doesn't already exist
+    ESP_LOGI(TAG, "Checking if PRG directory exists");
+    struct stat st;
+    if (stat(SD_CARD_PRG_PATH, &st) != 0) {
+        // directory does not exist, create it
+        if(mkdir(SD_CARD_PRG_PATH, 0775) != 0) {
+            ESP_LOGE(TAG, "Failed to create directory %s", SD_CARD_PRG_PATH);
+            return false;
+        }
+        ESP_LOGE(TAG, "PRG directory has been created: %s", SD_CARD_PRG_PATH);
+    } else if (!S_ISDIR(st.st_mode)) {
+        ESP_LOGE(TAG, "%s is not a directory", SD_CARD_PRG_PATH);
+        return false;
+    } else {
+        ESP_LOGI(TAG, "Found prg directory: %s" , SD_CARD_PRG_PATH);
+    }
 
     initialized = true;
     return true;
@@ -244,16 +263,6 @@ bool SDCard::listNextEntry(uint8_t* nextentry, size_t entrySize, bool start) {
             closedir(dir);
             dir = nullptr;
         }
-
-        // TODO: Remove test block
-        // open the root directory and log all entries
-        dir = opendir("/sdcard");
-        // log all entries in the root directory
-        ESP_LOGI(TAG, "Listing root directory:");
-        while ((ent = readdir(dir)) != nullptr) {
-            ESP_LOGI(TAG, "found file: %s", ent->d_name);
-        }
-        closedir(dir);
 
         dir = opendir(SD_CARD_PRG_PATH);
         if (!dir) {

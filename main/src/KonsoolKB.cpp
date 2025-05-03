@@ -196,7 +196,7 @@ void KonsoolKB::handleKeyPress()
 
     switch (event.type) {
         case INPUT_EVENT_TYPE_NAVIGATION: {
-            konsoleled->set_led_color(0, 0xffff0000);
+            konsoleled->set_led_color(4, 0xffff0000);
             konsoleled->show_led_colors();
             if (event.args_navigation.state == false) {
                 break;
@@ -211,7 +211,7 @@ void KonsoolKB::handleKeyPress()
                     };
                     break;
                 case BSP_INPUT_NAVIGATION_KEY_VOLUME_UP:
-                    if (audio_volume < 100) {
+                    if (audio_volume <= 100) {
                         audio_volume += 5;
                         bsp_audio_set_volume(audio_volume);
                     };
@@ -222,7 +222,7 @@ void KonsoolKB::handleKeyPress()
             break;
         }
         case INPUT_EVENT_TYPE_ACTION: {
-            konsoleled->set_led_color(0, 0xff0000ff);
+            konsoleled->set_led_color(4, 0xff0000ff);
             konsoleled->show_led_colors();
             break;
         }

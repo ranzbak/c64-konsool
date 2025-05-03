@@ -9,7 +9,8 @@ void KonsoleLED::init() {
     // initialize LEDs
     ESP_ERROR_CHECK(bsp_led_initialize());
 
-    for (uint8_t i = 0; i < 6; i++) {
+    // Ignore LED 0 as it's the power LED
+    for (uint8_t i = 1; i < 6; i++) {
         set_led_color(i, 0x000000);  // Black
     }
     show_led_colors();

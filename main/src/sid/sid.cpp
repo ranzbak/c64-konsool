@@ -372,7 +372,7 @@ int SID::cycle(unsigned char num,
     // cca. 1.53Mohm resistor in parallel with the MOSFET in 6581 which doesn't let the frequency go below 200..220Hz
     // Even if the MOSFET doesn't conduct at all. 470pF capacitors are small, so 6581 can't go below this
     // cutoff-frequency with 1.5MOhm.)
-    cutoff[num] = sReg[0x16] * 8 + (sReg[0x15] & 0x07);
+    cutoff[num] = sReg[0x16] * 8 + (sReg[0x15] & 0x07);  // 11-bit frequency control 0-2048 at ~6.1 Hz / inc
     if (SID_model[num] == 8580) {
         cutoff[num] = (1 - fast_exp(((cutoff[num]) + 2) * CUTOFF_RATIO_8580));  // linear curve by resistor-ladder VCR
         // resonance[num] = ( powf(2, ((4 - (sReg[0x17] >> 4)) / 8.0)) );
@@ -394,15 +394,21 @@ int SID::cycle(unsigned char num,
         resonance[num] = ((sReg[0x17] > 0x5F) ? 8.0 / (sReg[0x17] >> 4) : 1.41);
     }
     filtout = 0;
-    ftmp    = filtin + prevbandpass[num] * resonance[num] + prevlowpass[num];
-    if (sReg[0x18] & HIGHPASS_BITMASK) filtout -= ftmp;
+    ftmp     = filtin + prevbandpass[num] * resonance[num] + prevlowpass[num];
+    if (sReg[0x18] & (HIGHPASS_BITMASK | BANDPASS_BITMASK)) {
+        filtout -= ftmp;
+    }
     ftmp              = prevbandpass[num] - ftmp * cutoff[num];
     prevbandpass[num] = ftmp;
-    if (sReg[0x18] & BANDPASS_BITMASK) filtout -= ftmp;
-    // Overflow in lowpass filter caused distortion, so reducing the feedback to prevent overflow
-    ftmp             = (prevlowpass[num] >> 1) + ftmp * cutoff[num];
+    if (sReg[0x18] & BANDPASS_BITMASK) {
+        filtout -= ftmp;
+    }
+    // ftmp             = (prevlowpass[num] << 1)  + ftmp * cutoff[num];
+    ftmp = (1-cutoff[num]) * (ftmp - prevlowpass[num]);
     prevlowpass[num] = ftmp;
-    if (sReg[0x18] & LOWPASS_BITMASK) filtout += ftmp;
+    if (sReg[0x18] & LOWPASS_BITMASK) {
+        filtout += ftmp;
+    }
 
     // output stage for one SID
     // when it comes to $D418 volume-register digi playback, I made an AC / DC separation for $D418 value in the SwinSID

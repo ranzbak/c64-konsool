@@ -32,7 +32,7 @@ Since the menu structure is still being developed, I'm going to not document mor
 
 At this time only the loading of **.PRG** files is supported, .d64 files are in the planning.
 
-- To load .prg files, put them on in the root of the SD card file system.
+- To load .prg files, put them on in a directory named 'c64prg' SD card file system.
 
 - By Opening the menu and select 'Load PRG', a .prg file can be selected and loaded.
 
@@ -51,13 +51,14 @@ Indicators of joystick status and port will be added to the software in the futu
 
 #### Joystick key bindings
 
-| key         | Joystick function |
-| ----------- | ----------------- |
-| Arrow up    | UP                |
-| Arrow down  | DOWN              |
-| Arrow left  | LEFT              |
-| Arrow right | RIGHT             |
-| Left SHIFT  | FIRE button       |
+| key               | Joystick function                |
+| ----------------- | -------------------------------- |
+| Arrow up          | UP                               |
+| Arrow down        | DOWN                             |
+| Arrow left        | LEFT                             |
+| Arrow right       | RIGHT                            |
+| Left SHIFT        | FIRE button                      |
+| F5 / Blue diamond | Switch joystick between port 1/2 |
 
 ## Perquisites
 

@@ -53,6 +53,9 @@ extern "C" {
 #include "src/C64Emu.hpp"
 // #include "src/konsoolled.hpp"
 // #include "src/Config.hpp"
+
+#include "hid_keyboard.h"
+
 // Constants
 static char const* TAG = "app_main";
 
@@ -118,11 +121,12 @@ extern "C" void app_main(void)
     // Get 50Hz frame rate semaphore
     frameRateMutex = c64Emu.cpu.getFrameRateMutex();
 
+    hid_kbd_init();
     // Main loop outputs C64 screen contents to the display
     while (true) {
         // Wait for display refresh signal
         xSemaphoreTake(semaphore, 100 / portTICK_PERIOD_MS);
-
+        handle_hid_events();
         // We only want 50Hz output, so we'll skip some frames
         if (to50hz > 1.0) {
             c64Emu.loop();

@@ -24,6 +24,7 @@ idf_component_register(
 		esp_driver_ppa
 		fatfs
 		nvs_flash
+		hidhost
 		badge-bsp
 	INCLUDE_DIRS
 		"."

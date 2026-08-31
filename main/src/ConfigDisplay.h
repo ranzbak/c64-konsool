@@ -17,7 +17,11 @@
 */
 #include "Config.hpp"
 #include "DisplayDriver.hpp"
-#if defined(USE_ST7789V)
+#if defined(HOST_BUILD)
+// The host build has no panel: it keeps the picture in memory so a run can be
+// screenshotted. See host/.
+#include "HeadlessDisplay.hpp"
+#elif defined(USE_ST7789V)
 #include "ST7789V.hpp"
 #elif defined(USE_RM67162)
 #include "RM67162.h"
@@ -27,7 +31,11 @@
 
 struct ConfigDisplay {
     DisplayDriver* displayDriver;
-#if defined(USE_ST7789V)
+#if defined(HOST_BUILD)
+    ConfigDisplay() {
+        displayDriver = new HeadlessDisplay();
+    }
+#elif defined(USE_ST7789V)
     ConfigDisplay() {
         displayDriver = new ST7789V();
     }

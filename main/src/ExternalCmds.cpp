@@ -16,12 +16,24 @@
 */
 #include "ExternalCmds.hpp"
 #include <esp_log.h>
+#include <fcntl.h>
+#include <cstring>
+#include <sys/unistd.h>
 #include "C64Emu.hpp"
+#include "menuoverlay/MenuDataStore.hpp"
 #include "Config.hpp"
 #include "listactions.h"
 #include "loadactions.h"
 #include "saveactions.hpp"
 #include "string.h"
+#include <string>
+#include "images/CbmImage.hpp"
+#include "images/D64Image.hpp"
+#include "images/T64Image.hpp"
+#include <fcntl.h>
+#include <cstring>
+#include <unistd.h>
+#include "drive/Drive1541.hpp"
 
 static const char* TAG = "ExternalCmds";
 
@@ -63,6 +75,16 @@ void ExternalCmds::init(uint8_t* ram, C64Emu* c64emu) {
     // Setup SDCard
     // TODO: implement detection of insert and remove SD card
     sdcard.init();
+
+    // Switch the real drive on for the whole session when its ROM is on the
+    // card. Waiting for a disk to go in was too late to be useful: the menu
+    // toggle still read off until something had been mounted, and a program
+    // started from a .prg had no drive 8 at all. A card without the ROM is
+    // unchanged, and the toggle still switches it off by hand.
+    if (loadDriveRom() && setTrueDriveEmulation(true)) {
+        MenuDataStore::getInstance()->set("true_drive_ena", true);
+        ESP_LOGI(TAG, "1541 emulation on, %s found", DRIVE_ROM_FILENAME);
+    }
 }
 
 void ExternalCmds::setType1Notification() {
@@ -122,26 +144,8 @@ void ExternalCmds::setVarTab(uint16_t addr) {
     c64emu->cpu.setPC(0xa52a);
 }
 
-bool ExternalCmds::loadPrg(const char* filename) {
-    ESP_LOGI(TAG, "load from sdcard...");
-    c64emu->cpu.cpuhalted = true;
-    bool     fileloaded   = false;
-    bool     error        = false;
-    uint16_t addr;
-    if (sdcard.init()) {
-        std::string full_name = (std::string("/") + filename + ".prg").c_str();
-        addr                  = sdcard.load(full_name.c_str(), ram);
-        if (addr == 0) {
-            ESP_LOGI(TAG, "file not found %s", full_name.c_str());
-        } else {
-            setVarTab(addr);
-            fileloaded = true;
-        }
-    } else {
-        error = true;
-        ESP_LOGI(TAG, "error init sdcard");
-    }
-    addr = src_loadactions_prg[0] + (src_loadactions_prg[1] << 8);
+void ExternalCmds::finishLoad(bool fileloaded, bool error) {
+    uint16_t addr = src_loadactions_prg[0] + (src_loadactions_prg[1] << 8);
     memcpy(ram + addr, src_loadactions_prg + 2, src_loadactions_prg_len - 2);
     if (fileloaded) {
         c64emu->cpu.exeSubroutine(addr, 1, 0, 0);
@@ -151,7 +155,312 @@ bool ExternalCmds::loadPrg(const char* filename) {
         c64emu->cpu.exeSubroutine(addr, 0, 0, 0);
     }
     c64emu->cpu.cpuhalted = false;
-    return 0;
+}
+
+bool ExternalCmds::loadPrg(const char* filename) {
+    return loadFile((std::string(filename) + ".prg").c_str());
+}
+
+bool ExternalCmds::loadFile(const char* filename) {
+    ESP_LOGI(TAG, "load %s from sdcard...", filename);
+    if (!sdcard.init()) {
+        ESP_LOGE(TAG, "error init sdcard");
+        c64emu->cpu.cpuhalted = true;
+        finishLoad(false, true);
+        return false;
+    }
+    return loadFileFromPath(SDCard::fullPath(filename).c_str());
+}
+
+bool ExternalCmds::loadFileFromPath(const char* fullpath) {
+    ImageFormat format = imageFormatFromName(fullpath);
+    if (format == ImageFormat::T64 || format == ImageFormat::D64) {
+        // No entry was picked, so load the first program in the container.
+        return loadImageEntryFromPath(fullpath, 0);
+    }
+    if (format == ImageFormat::PRG) {
+        return loadPrgFromPath(fullpath);
+    }
+
+    ESP_LOGE(TAG, "unsupported file type: %s", fullpath);
+    c64emu->cpu.cpuhalted = true;
+    finishLoad(false, true);
+    return false;
+}
+
+bool ExternalCmds::loadImageEntry(const char* filename, uint16_t index) {
+    if (!sdcard.init()) {
+        ESP_LOGE(TAG, "error init sdcard");
+        c64emu->cpu.cpuhalted = true;
+        finishLoad(false, true);
+        return false;
+    }
+    return loadImageEntryFromPath(SDCard::fullPath(filename).c_str(), index);
+}
+
+bool ExternalCmds::loadImageEntryFromPath(const char* fullpath, uint16_t index) {
+    ESP_LOGI(TAG, "load entry %u of %s", static_cast<unsigned>(index), fullpath);
+
+    // Taking a program off a disk is not the same as being handed a .prg: the
+    // program usually expects that disk to still be in the drive, because the
+    // next part comes off it. Leave it mounted, which also brings the 1541 on
+    // when its ROM is on the card. Do this before the CPU is halted below,
+    // since mounting halts and releases it in its own right.
+    if (imageFormatFromName(fullpath) == ImageFormat::D64) {
+        mountDiskFromPath(fullpath);
+    }
+
+    c64emu->cpu.cpuhalted = true;
+
+    T64Image  t64;
+    D64Image  d64;
+    CbmImage* image = nullptr;
+    switch (imageFormatFromName(fullpath)) {
+        case ImageFormat::T64:
+            image = &t64;
+            break;
+        case ImageFormat::D64:
+            image = &d64;
+            break;
+        default:
+            ESP_LOGE(TAG, "not a container: %s", fullpath);
+            finishLoad(false, true);
+            return false;
+    }
+
+    if (!image->open(fullpath)) {
+        ESP_LOGE(TAG, "cannot read image %s", fullpath);
+        finishLoad(false, true);
+        return false;
+    }
+
+    uint16_t endAddr    = 0;
+    bool     fileloaded = image->extract(index, ram, &endAddr);
+    image->close();
+
+    if (fileloaded) {
+        setVarTab(endAddr);
+    } else {
+        ESP_LOGI(TAG, "cannot extract entry %u of %s", static_cast<unsigned>(index), fullpath);
+    }
+
+    finishLoad(fileloaded, false);
+    return fileloaded;
+}
+
+bool ExternalCmds::loadDriveRom() {
+    extern unsigned char* disk_rom;
+    driveRom = (uint8_t*)disk_rom;
+    if (driveRom != nullptr) return true;
+    return false;
+}
+
+bool ExternalCmds::setTrueDriveEmulation(bool enabled) {
+    if (!enabled) {
+        c64emu->cpu.disableTrueDrive();
+        trueDrive = false;
+        // Hand device 8 back to the traps if a disk is still mounted.
+        if (mounted) {
+            c64emu->cpu.cpuhalted = true;
+            c64emu->cpu.installIecTraps();
+            c64emu->cpu.cpuhalted = false;
+        }
+        return true;
+    }
+
+    if (!loadDriveRom()) {
+        trueDrive = false;
+        return false;
+    }
+
+    c64emu->cpu.cpuhalted = true;
+    bool ok               = c64emu->cpu.enableTrueDrive(driveRom, mounted ? &disk : nullptr);
+    c64emu->cpu.cpuhalted = false;
+
+    trueDrive = ok;
+    return ok;
+}
+
+bool ExternalCmds::mountDisk(const char* filename) {
+    if (!sdcard.init()) {
+        ESP_LOGE(TAG, "error init sdcard");
+        return false;
+    }
+    return mountDiskFromPath(SDCard::fullPath(filename).c_str());
+}
+
+bool ExternalCmds::mountDiskFromPath(const char* fullpath) {
+    unmountDisk();
+
+    // Putting a disk in is the moment to switch the real drive on. Anything
+    // that loads more than one part needs it, and having to remember a menu
+    // toggle every time is a good way to conclude the disk is broken. This
+    // only happens when the ROM is actually on the card, so a card without one
+    // behaves exactly as before, and the toggle still switches it back off.
+    if (!trueDrive && loadDriveRom()) {
+        if (setTrueDriveEmulation(true)) {
+            MenuDataStore::getInstance()->set("true_drive_ena", true);
+            ESP_LOGI(TAG, "1541 emulation switched on for this disk");
+        }
+    }
+
+    if (imageFormatFromName(fullpath) != ImageFormat::D64) {
+        ESP_LOGE(TAG, "%s is not a disk image", fullpath);
+        return false;
+    }
+
+    if (!disk.open(fullpath)) {
+        ESP_LOGE(TAG, "cannot read disk image %s", fullpath);
+        return false;
+    }
+
+    // Menus and logs want the file name, not the whole path it came from.
+    const char* name = strrchr(fullpath, '/');
+    name             = (name != nullptr) ? name + 1 : fullpath;
+
+    // Set the DOS emulation up whichever drive is in charge. It only answers
+    // while the traps are installed, and having it ready means switching the
+    // 1541 off later leaves a working drive 8 rather than an empty bus.
+    dos.setDeviceNumber(8);
+    dos.setDisk(&disk);
+    c64emu->cpu.iecbus.attach(&dos);
+
+    if (trueDrive) {
+        // The real drive reads the image itself, so the traps stay out of the
+        // way entirely.
+        c64emu->cpu.cpuhalted = true;
+        bool ok               = c64emu->cpu.enableTrueDrive(driveRom, &disk);
+        c64emu->cpu.cpuhalted = false;
+        if (!ok) {
+            dos.setDisk(nullptr);
+            c64emu->cpu.iecbus.detach(8);
+            disk.close();
+            return false;
+        }
+        mounted     = true;
+        mountedName = name;
+        ESP_LOGI(TAG, "mounted %s in the emulated 1541", name);
+        return true;
+    }
+
+    // Installing the traps rewrites bytes in the kernal image the running CPU
+    // is fetching from, so stop it for the moment it takes.
+    c64emu->cpu.cpuhalted = true;
+    bool installed        = c64emu->cpu.installIecTraps();
+    c64emu->cpu.cpuhalted = false;
+
+    if (!installed) {
+        ESP_LOGE(TAG, "could not install the kernal serial traps");
+        c64emu->cpu.iecbus.detach(8);
+        dos.setDisk(nullptr);
+        disk.close();
+        return false;
+    }
+
+    mounted     = true;
+    mountedName = name;
+    ESP_LOGI(TAG, "mounted %s as drive 8", name);
+    return true;
+}
+
+bool ExternalCmds::swapDisk(const char* fullpath) {
+    ESP_LOGI(TAG, "swapping in %s, true drive %s", fullpath, trueDrive ? "on" : "off");
+
+    if (imageFormatFromName(fullpath) != ImageFormat::D64) {
+        ESP_LOGE(TAG, "%s is not a disk image", fullpath);
+        return false;
+    }
+    if (!mounted) {
+        // Nothing to swap for; this is an ordinary mount.
+        return mountDiskFromPath(fullpath);
+    }
+
+    // Read the new image before letting go of the old one, so a bad path
+    // leaves the drive with the disk it already had.
+    D64Disk next;
+    if (!next.open(fullpath)) {
+        ESP_LOGE(TAG, "cannot read disk image %s", fullpath);
+        return false;
+    }
+    next.close();
+
+    disk.close();
+    if (!disk.open(fullpath)) {
+        ESP_LOGE(TAG, "cannot reopen %s", fullpath);
+        mounted = false;
+        return false;
+    }
+
+    // The kernal traps read through the same image, so they need nothing else.
+    dos.setDisk(&disk);
+
+    if (trueDrive) {
+        // Deliberately not enableTrueDrive(): that resets the drive CPU, which
+        // would throw away a loader's uploaded code. Just change the disk under
+        // the head and let the drive notice.
+        c64emu->cpu.drive.swapDisk(&disk);
+    }
+
+    const char* name = strrchr(fullpath, '/');
+    name             = (name != nullptr) ? name + 1 : fullpath;
+    mountedName      = name;
+    ESP_LOGI(TAG, "swapped in %s", name);
+    return true;
+}
+
+void ExternalCmds::unmountDisk() {
+    if (!mounted) return;
+
+    if (trueDrive) {
+        // Taking the disk out does not switch the drive off, on a real 1541 or
+        // here. Switching it off left this object still believing it was on,
+        // and the menu toggle still reading "On" over a drive that was not
+        // running, so the setting lied about the machine. Re-enable it with no
+        // disk instead, which is what an empty drive is.
+        c64emu->cpu.cpuhalted = true;
+        c64emu->cpu.enableTrueDrive(driveRom, nullptr);
+        c64emu->cpu.cpuhalted = false;
+        dos.setDisk(nullptr);
+        c64emu->cpu.iecbus.detach(8);
+        disk.close();
+        mounted = false;
+        mountedName.clear();
+        ESP_LOGI(TAG, "took the disk out of the emulated 1541");
+        return;
+    }
+
+    // Take the traps back out so the Kernal behaves exactly as it did before
+    // anything was mounted.
+    c64emu->cpu.cpuhalted = true;
+    c64emu->cpu.removeIecTraps();
+    c64emu->cpu.cpuhalted = false;
+    c64emu->cpu.iecbus.detach(8);
+    dos.setDisk(nullptr);
+    disk.close();
+
+    mounted = false;
+    mountedName.clear();
+    ESP_LOGI(TAG, "unmounted drive 8");
+}
+
+bool ExternalCmds::loadPrgFromPath(const char* fullpath) {
+    ESP_LOGI(TAG, "load from %s", fullpath);
+    c64emu->cpu.cpuhalted = true;
+    bool fileloaded = false;
+
+    uint16_t addr = SDCard::readPrg(fullpath, ram);
+    if (addr != 0) {
+        setVarTab(addr);
+        fileloaded = true;
+    } else {
+        ESP_LOGE(TAG, "failed to load %s", fullpath);
+    }
+
+    uint16_t action_addr = src_loadactions_prg[0] + (src_loadactions_prg[1] << 8);
+    memcpy(ram + action_addr, src_loadactions_prg + 2, src_loadactions_prg_len - 2);
+    c64emu->cpu.exeSubroutine(action_addr, fileloaded ? 1 : 0, 0, 0);
+    c64emu->cpu.cpuhalted = false;
+    return fileloaded;
 }
 
 void ExternalCmds::reset() {

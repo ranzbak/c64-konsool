@@ -1,0 +1,30 @@
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  host-tests:
+    name: Host tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # The image readers and the drive emulation depend on nothing but POSIX
+      # file calls, so they build with a plain compiler. No ESP-IDF, no
+      # toolchain download, no hardware. Both suites run under the address and
+      # undefined behaviour sanitisers.
+      - name: Image format tests (.t64 and .d64 parsing)
+        run: make -C main/src/images/test run
+
+      - name: Drive and CBM DOS tests
+        run: make -C main/src/drive/test run
+
+      # Klaus Dormann's suite walks every documented opcode, addressing mode
+      # and flag rule, including decimal arithmetic. Around 30 million
+      # instructions, a few seconds.
+      - name: 6502 functional test suite
+        run: make -C main/src/test run

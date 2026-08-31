@@ -25,8 +25,8 @@ class DisplayDriver {
     virtual void            init()                           = 0;
     virtual void            drawFrame(uint16_t* frameColors) = 0;
     virtual void            drawBitmap(uint16_t* bitmap)     = 0;
-    virtual void            enableMenuOverlay(bool enable);
-    virtual pax_buf_t*      getMenuFb();
+    virtual void            enableMenuOverlay(bool enable) {}
+    virtual pax_buf_t*      getMenuFb() { return nullptr; }
     virtual const uint16_t* getC64Colors() const = 0;
     virtual ~DisplayDriver() {
     }

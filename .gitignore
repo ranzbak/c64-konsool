@@ -85,6 +85,8 @@ examples/**/sdkconfig.old
 
 # Unit test app files
 tools/*
+!tools/gen_kbmatrix.py
+!tools/get-drive-rom.sh
 tools/unit-test-app/build
 tools/unit-test-app/build_*_*/
 tools/unit-test-app/sdkconfig
@@ -149,3 +151,22 @@ XUNIT_RESULT*.xml
 
 # Vale
 .vale/styles/*
+
+# host test binary
+main/src/images/test/image_test
+
+main/src/drive/test/dos_test
+main/src/drive/test/gcr_test
+main/src/drive/test/drive_test
+main/src/test/cpu_test
+main/src/test/cycle_test
+
+# The 1541 DOS ROM is copyrighted and must not be committed. tools/get-drive-rom.sh
+# drops a copy here when it is run without a destination.
+1541.rom
+*.d64
+*.t64
+*.prg
+
+# Host build screen dumps
+screen.ppm

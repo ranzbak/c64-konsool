@@ -31,7 +31,6 @@
 #include "freertos/idf_additions.h"
 // #include "hal/gpio_types.h"
 #include "portmacro.h"
-#include "roms/charset.h"
 #include "sid/sid.hpp"
 extern "C" {
 // #include <esp_adc/adc_cali.h>
@@ -46,6 +45,8 @@ static const char* TAG = "C64Emu";
 SemaphoreHandle_t C64Emu::lcdRefreshSem;
 
 C64Emu* C64Emu::instance = nullptr;
+
+extern unsigned char* charset_rom;
 
 void IRAM_ATTR C64Emu::interruptProfilingBatteryCheckFunc()
 {

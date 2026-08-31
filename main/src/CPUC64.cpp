@@ -18,18 +18,23 @@
 #include <esp_log.h>
 #include <esp_random.h>
 #include <cstdint>
+#if defined(HOST_BUILD)
+#include "HostC64Emu.hpp"
+#else
 #include "C64Emu.hpp"
+#endif
 #include "JoystickInitializationException.h"
 #include "esp_attr.h"
 #include "esp_timer.h"
 #include "freertos/idf_additions.h"
 #include "portmacro.h"
-#include "roms/basic.h"
-#include "roms/kernal.h"
 
 static const uint8_t NUMCIACHECKS = 2;
 
 static const char* TAG = "CPUC64";
+
+extern unsigned char* kernal_rom;
+extern unsigned char* basic_rom;
 
 // read dc00 / dc01:
 // from
@@ -82,56 +87,31 @@ uint8_t CPUC64::getMem(uint16_t addr) {
         }
         // ** CIA 1 **
         else if (addr <= 0xdcff) {
-            kbjoystickmode = menuDataStore->getInt("kb_joystick_port", 0);
             uint8_t ciaidx = (addr - 0xdc00) % 0x10;
             if (ciaidx == 0x00) {
-                uint8_t ddra  = cia1.ciaReg[0x02];
-                uint8_t input = 0xff;
-                if (joystickmode == 2) {
-                    // real joystick, but still check for keyboard input
-                    input = c64emu->konsoolkb.getdc01(cia1.ciaReg[0x01], true);
-                    if (input == 0xff) {
-                        // no key pressed -> return joystick value (of real joystick)
-                        input = joystick.getValue();
-                    }
-                } else if (kbjoystickmode == 2) {
-                    // keyboard joystick, but still check for keyboard input
-                    input = c64emu->konsoolkb.getdc01(cia1.ciaReg[0x01], true);
-                    if (input == 0xff) {
-                        // no key pressed -> return joystick value (of keyboard joystick)
-                        input = c64emu->konsoolkb.getKBJoyValue(true);
-                    }
-                } else {
-                    // keyboard
-                    input = c64emu->konsoolkb.getdc01(cia1.ciaReg[0x01], true);
+                // port 2
+                uint8_t ddra = cia1.ciaReg[0x02];
+                // check for keyboard input first, a pressed key wins over the joystick
+                uint8_t input = c64emu->konsoolkb.getdc01(cia1.ciaReg[0x01], true);
+                if (input == 0xff) {
+                    // no key pressed -> return the value of whatever drives port 2
+                    input = (joystickmode == 2) ? joystick.getValue() : getVirtJoyValue(true);
                 }
                 return (cia1.ciaReg[0x00] | ~ddra) & input;
             } else if (ciaidx == 0x01) {
-                uint8_t ddrb  = cia1.ciaReg[0x03];
-                uint8_t input = 0xff;
+                // port 1
+                uint8_t ddrb = cia1.ciaReg[0x03];
                 if (joystickmode == 2) {
                     // special case: handle fire2 button -> space key
                     if ((cia1.ciaReg[0x00] == 0x7f) && joystick.getFire2()) {
                         return 0xef;
                     }
                 }
-                if (joystickmode == 1) {
-                    // real joystick, but still check for keyboard input
-                    input = c64emu->konsoolkb.getdc01(cia1.ciaReg[0x00], false);
-                    if (input == 0xff) {
-                        // no key pressed -> return joystick value (of real joystick)
-                        input = joystick.getValue();
-                    }
-                } else if (kbjoystickmode == 1) {
-                    // keyboard joystick, but still check for keyboard input
-                    input = c64emu->konsoolkb.getdc01(cia1.ciaReg[0x00], false);
-                    if (input == 0xff) {
-                        // no key pressed -> return joystick value (of keyboard joystick)
-                        input = c64emu->konsoolkb.getKBJoyValue(false);
-                    }
-                } else {
-                    // keyboard
-                    input = c64emu->konsoolkb.getdc01(cia1.ciaReg[0x00], false);
+                // check for keyboard input first, a pressed key wins over the joystick
+                uint8_t input = c64emu->konsoolkb.getdc01(cia1.ciaReg[0x00], false);
+                if (input == 0xff) {
+                    // no key pressed -> return the value of whatever drives port 1
+                    input = (joystickmode == 1) ? joystick.getValue() : getVirtJoyValue(false);
                 }
                 return (cia1.ciaReg[0x01] | ~ddrb) & input;
             }
@@ -141,8 +121,14 @@ uint8_t CPUC64::getMem(uint16_t addr) {
         else if (addr <= 0xddff) {
             uint8_t ciaidx = (addr - 0xdd00) % 0x10;
             if (ciaidx == 0x00) {
-                uint8_t ddra = cia2.ciaReg[0x02];
-                return cia2.ciaReg[0x00] | ~ddra;
+                uint8_t ddra  = cia2.ciaReg[0x02];
+                // Bits 0 to 5 read back the port; bits 6 and 7 are the serial
+                // bus, and are set when the line is released. Following
+                // Frodo's MOS6526_2::ReadRegister.
+                uint8_t value = static_cast<uint8_t>((cia2.ciaReg[0x00] | ~ddra) & 0x3f);
+                if (!iecLines.clkLow()) value |= 0x40;
+                if (!iecLines.dataLow()) value |= 0x80;
+                return value;
             } else if (ciaidx == 0x01) {
                 uint8_t ddrb = cia2.ciaReg[0x03];
                 return cia2.ciaReg[0x01] | ~ddrb;
@@ -238,6 +224,51 @@ void CPUC64::adaptVICBaseAddrs(bool fromcia) {
     }
 }
 
+void CPUC64::applyCia2PortA() {
+    uint8_t val  = cia2.ciaReg[0x00];
+    uint8_t ddra = cia2.ciaReg[0x02];
+
+    // Bits 0 and 1 pick the VIC bank, and they follow the port pins rather
+    // than the latch: a bit left as an input floats high and reads as one
+    // whatever was written to it. A fast loader bit-bangs this register
+    // thousands of times a second and does not preserve those bits, precisely
+    // because it has left them as inputs. Spindle sets the data direction to
+    // $3c, so on real hardware the bank never moves; taking it from the
+    // written value alone put the VIC on a different 16K on every handshake,
+    // and it drew its bitmap, screen and charset out of whatever was there.
+    uint8_t bank = static_cast<uint8_t>(val | ~ddra) & 3;
+    switch (bank) {
+        case 0:
+            vic->vicmem = 0xc000;
+            break;
+        case 1:
+            vic->vicmem = 0x8000;
+            break;
+        case 2:
+            vic->vicmem = 0x4000;
+            break;
+        case 3:
+            vic->vicmem = 0x0000;
+            break;
+    }
+    adaptVICBaseAddrs(true);
+
+    // The same register drives the serial bus, through inverting buffers. A
+    // line is released only by driving its bit with a zero: a one pulls the
+    // line low, and so does leaving the bit as an input, because the pin then
+    // floats high through its pull up and the inverter turns that into a
+    // pulled down line. Frodo builds the same value as "~pra & ddra", a set
+    // bit meaning the line is high (src/CIA.cpp, write_pa).
+    uint8_t released = static_cast<uint8_t>(~val & ddra);
+    bool    atnWas   = iecLines.atnLow();
+    iecLines.c64Atn  = (released & 0x08) == 0;
+    iecLines.c64Clk  = (released & 0x10) == 0;
+    iecLines.c64Data = (released & 0x20) == 0;
+    if (iecLines.atnLow() != atnWas) {
+        onAtnChanged();
+    }
+}
+
 void CPUC64::setMem(uint16_t addr, uint8_t val) {
     if (bankDIO && (addr >= 0xd000) && (addr <= 0xdfff)) {
         // ** VIC **
@@ -301,24 +332,18 @@ void CPUC64::setMem(uint16_t addr, uint8_t val) {
         else if (addr <= 0xddff) {
             uint8_t ciaidx = (addr - 0xdd00) % 0x10;
             if (ciaidx == 0x00) {
-                uint8_t bank = val & 3;
-                switch (bank) {
-                    case 0:
-                        vic->vicmem = 0xc000;
-                        break;
-                    case 1:
-                        vic->vicmem = 0x8000;
-                        break;
-                    case 2:
-                        vic->vicmem = 0x4000;
-                        break;
-                    case 3:
-                        vic->vicmem = 0x0000;
-                        break;
-                }
-                cia2.ciaReg[ciaidx] = 0x94 | bank;
-                // adapt VIC base addresses
-                adaptVICBaseAddrs(true);
+                cia2.ciaReg[ciaidx] = val;
+                applyCia2PortA();
+            } else if (ciaidx == 0x02) {
+                // The data direction decides which of the port's bits actually
+                // drive the serial bus, and which of the VIC bank bits float
+                // high, so both have to be recomputed when it changes and not
+                // only when the port itself is written. A loader that turns ATN
+                // into an output while the latch bit is already set asserts ATN
+                // by writing here alone, and without this the drive never sees
+                // the edge it is waiting for.
+                cia2.setCommonCIAReg(ciaidx, val);
+                applyCia2PortA();
             } else {
                 cia2.setCommonCIAReg(ciaidx, val);
             }
@@ -339,7 +364,222 @@ uint8_t *CPUC64::getSidRegs() {
     return sidreg;
 }
 
+// Kernal jump table entries for the serial routines. Each holds a JMP to the
+// real routine, so the address to trap is read from the ROM rather than being
+// hardcoded to a particular Kernal revision.
+struct IecTrapVector {
+    uint16_t    jumpTableAddr;
+    const char* name;
+};
+
+static const IecTrapVector kIecTrapVectors[CPUC64::IEC_TRAP_COUNT] = {
+    {0xFFB1, "LISTEN"},  // IEC_TRAP_LISTEN
+    {0xFFB4, "TALK"},    // IEC_TRAP_TALK
+    {0xFF93, "SECOND"},  // IEC_TRAP_SECOND
+    {0xFF96, "TKSA"},    // IEC_TRAP_TKSA
+    {0xFFA8, "CIOUT"},   // IEC_TRAP_CIOUT
+    {0xFFA5, "ACPTR"},   // IEC_TRAP_ACPTR
+    {0xFFAB, "UNTLK"},   // IEC_TRAP_UNTLK
+    {0xFFAE, "UNLSN"},   // IEC_TRAP_UNLSN
+};
+
+// Kernal status byte, and the values the serial routines report through it.
+// Taken from Frodo's IEC.h, which is the reference for what these routines
+// hand back: a write with nobody listening reports $03 rather than just the
+// write timeout bit, and a read past the end reports $02 on its own.
+//
+// Frodo (C) 1994-1997, 2002 Christian Bauer, GPL version 2 or later.
+static const uint16_t KERNAL_STATUS       = 0x90;
+static const uint8_t  STATUS_READ_TIMEOUT = 0x02;  // Frodo ST_READ_TIMEOUT
+static const uint8_t  STATUS_TIMEOUT      = 0x03;  // Frodo ST_TIMEOUT
+static const uint8_t  STATUS_EOI          = 0x40;  // Frodo ST_EOF
+static const uint8_t  STATUS_NOT_PRESENT  = 0x80;  // Frodo ST_NOTPRESENT
+
+static const uint8_t OPCODE_JAM = 0x02;
+static const uint8_t OPCODE_JMP = 0x4C;
+static const uint8_t OPCODE_RTS = 0x60;
+
+bool CPUC64::installIecTraps() {
+    if (iecTrapsActive) return true;
+
+    // Resolve every routine first, so a Kernal that does not look the way we
+    // expect leaves the ROM untouched rather than half patched.
+    uint16_t resolved[IEC_TRAP_COUNT];
+    for (int i = 0; i < IEC_TRAP_COUNT; i++) {
+        uint16_t entry = kIecTrapVectors[i].jumpTableAddr;
+        uint16_t off   = entry - 0xE000;
+        if (kernal_rom[off] != OPCODE_JMP) {
+            ESP_LOGE(TAG, "kernal jump table entry for %s is not a JMP", kIecTrapVectors[i].name);
+            return false;
+        }
+        resolved[i] = static_cast<uint16_t>(kernal_rom[off + 1] | (kernal_rom[off + 2] << 8));
+        if (resolved[i] < 0xE000) {
+            ESP_LOGE(TAG, "%s points outside the kernal at $%04x", kIecTrapVectors[i].name, resolved[i]);
+            return false;
+        }
+    }
+
+    for (int i = 0; i < IEC_TRAP_COUNT; i++) {
+        iecTrapAddr[i]      = resolved[i];
+        uint16_t off        = resolved[i] - 0xE000;
+        iecTrapSavedByte[i] = kernal_rom[off];
+        kernal_rom[off]     = OPCODE_JAM;
+        ESP_LOGI(TAG, "trapped %s at $%04x", kIecTrapVectors[i].name, resolved[i]);
+    }
+    iecTrapsActive = true;
+    return true;
+}
+
+void CPUC64::removeIecTraps() {
+    if (!iecTrapsActive) return;
+    for (int i = 0; i < IEC_TRAP_COUNT; i++) {
+        kernal_rom[iecTrapAddr[i] - 0xE000] = iecTrapSavedByte[i];
+    }
+    iecTrapsActive = false;
+}
+
+// Services one trapped Kernal call. Returns false when the address is not one
+// of ours, which means a real JAM.
+bool CPUC64::handleIecTrap(uint16_t addr) {
+    if (!iecTrapsActive) return false;
+
+    int which = -1;
+    for (int i = 0; i < IEC_TRAP_COUNT; i++) {
+        if (iecTrapAddr[i] == addr) {
+            which = i;
+            break;
+        }
+    }
+    if (which < 0) return false;
+
+    switch (which) {
+        case IEC_TRAP_LISTEN:
+            if (!iecbus.listen(a)) ram[KERNAL_STATUS] |= STATUS_NOT_PRESENT;
+            break;
+        case IEC_TRAP_TALK:
+            if (!iecbus.talk(a)) ram[KERNAL_STATUS] |= STATUS_NOT_PRESENT;
+            break;
+        case IEC_TRAP_SECOND:
+            if (!iecbus.second(a)) ram[KERNAL_STATUS] |= STATUS_NOT_PRESENT;
+            break;
+        case IEC_TRAP_TKSA:
+            if (!iecbus.tksa(a)) ram[KERNAL_STATUS] |= STATUS_NOT_PRESENT;
+            break;
+        case IEC_TRAP_CIOUT:
+            if (!iecbus.ciout(a)) ram[KERNAL_STATUS] |= STATUS_TIMEOUT;
+            break;
+        case IEC_TRAP_ACPTR: {
+            uint8_t value = 0;
+            bool    eoi   = false;
+            if (iecbus.acptr(&value, &eoi)) {
+                a = value;
+                if (eoi) ram[KERNAL_STATUS] |= STATUS_EOI;
+            } else {
+                a                   = 0;
+                ram[KERNAL_STATUS] |= STATUS_READ_TIMEOUT;
+            }
+            // ACPTR leaves the byte in the accumulator, so mirror what a load
+            // would have done to the flags.
+            zflag = (a == 0);
+            nflag = (a & 0x80) != 0;
+            break;
+        }
+        case IEC_TRAP_UNTLK:
+            iecbus.untalk();
+            break;
+        case IEC_TRAP_UNLSN:
+            iecbus.unlisten();
+            break;
+        default:
+            return false;
+    }
+    return true;
+}
+
+// ATN going low is the drive's cue to look at the bus, so it has to be woken
+// even if it had parked itself.
+bool CPUC64::enableTrueDrive(uint8_t* romImage, DiskImage* image) {
+    if (romImage == nullptr) return false;
+
+    // The traps and the real drive cannot both answer device 8.
+    removeIecTraps();
+
+    drive.setLines(&iecLines);
+    drive.setRom(romImage);
+    drive.setDisk(image);
+    if (!drive.ready()) return false;
+
+    iecLines.reset();
+    drive.reset();
+    driveCycleDebt   = 0;
+    trueDriveEnabled = true;
+    ESP_LOGI(TAG, "true drive emulation on");
+    return true;
+}
+
+void CPUC64::disableTrueDrive() {
+    if (!trueDriveEnabled) return;
+    trueDriveEnabled = false;
+    drive.setDisk(nullptr);
+    iecLines.reset();
+    driveCycleDebt = 0;
+    ESP_LOGI(TAG, "true drive emulation off");
+}
+
+void CPUC64::onAtnChanged() {
+    if (!trueDriveEnabled) return;
+    // The acknowledge gate depends on ATN, so the drive's outputs change the
+    // moment ATN does, without the drive CPU running.
+    drive.refreshIecOutputs();
+}
+
+// Runs the C64 up to `untilCycles` of this rasterline, giving the drive its
+// turn along the way.
+//
+// The 1541 runs at very nearly the same speed as the C64, so it earns a cycle
+// for every cycle the C64 spends. Following Frodo, the two are alternated an
+// instruction at a time rather than a cycle at a time: whichever has fallen
+// behind runs next. That is close enough for loaders that hand bytes back and
+// forth over the bus, and far cheaper than stepping both cycle by cycle.
+void CPUC64::executeUntilCycle(uint8_t untilCycles) {
+    bool withDrive = trueDriveEnabled && drive.ready();
+
+    while (numofcycles < untilCycles) {
+        if (cpuhalted) {
+            break;
+        }
+
+        if (withDrive && driveCycleDebt > 0) {
+            driveCycleDebt -= static_cast<int>(drive.stepInstruction());
+            continue;
+        }
+
+        logDebugInfo();
+        uint8_t before = numofcycles;
+        execute(getMem(pc++));
+
+        if (withDrive) {
+            // The drive owes itself whatever the C64 just spent.
+            driveCycleDebt += static_cast<int>(static_cast<uint8_t>(numofcycles - before));
+        }
+    }
+}
+
+void CPUC64::emulateDriveCycles(unsigned int c64Cycles) {
+    if (!trueDriveEnabled || !drive.ready()) return;
+
+    // Timers keep running even while the drive is parked, so an interrupt it
+    // is waiting on still arrives.
+    drive.countTimers(c64Cycles);
+}
+
 void CPUC64::cmd6502halt() {
+    // The JAM opcode has already been fetched, so the trapped routine starts
+    // one byte back.
+    if (handleIecTrap(pc - 1)) {
+        execute(OPCODE_RTS);
+        return;
+    }
     cpuhalted = true;
     ESP_LOGE(TAG, "illegal code, cpu halted, pc = %x", pc - 1);
 }
@@ -469,7 +709,10 @@ void IRAM_ATTR CPUC64::run() {
         }
         // execute CPU cycles and check CIA timers
         // (4 = average number of cycles for an instruction)
-        numofcycles              = 0;
+        // numofcycles is *not* cleared here: the counter is reset at the end of
+        // the previous line, so the seven cycles of any interrupt entered since
+        // then - the raster IRQ just above included - are charged against this
+        // line's budget instead of being thrown away.
         uint8_t numofcyclestoexe = 63 - badlinecycles - spritecycles - cycles_extra;
         uint8_t n                = 1;
         if (badlinecycles == 0) {
@@ -480,28 +723,24 @@ void IRAM_ATTR CPUC64::run() {
         // Do CIA checks half way through the rasterline
         // But not during bad lines
         for (uint8_t i = 0; i < n - 1; i++) {
-            while (numofcycles < sumtmp) {
-                if (cpuhalted) {
-                    break;
-                }
-                logDebugInfo();
-                execute(getMem(pc++));
-            }
+            executeUntilCycle(sumtmp);
             checkciatimers(tmp);
             sumtmp += tmp;
         }
         // Finish the raster line
         tmp = numofcyclestoexe - numofcycles;
-        while (numofcycles < numofcyclestoexe) {
-            if (cpuhalted) {
-                break;
-            }
-            logDebugInfo();
-            execute(getMem(pc++));
-        }
+        executeUntilCycle(numofcyclestoexe);
+
+        emulateDriveCycles(numofcycles);
 
         // Make sure 63 cycles per rasterline on average
         cycles_extra = numofcycles - numofcyclestoexe;
+        // Reset the counter here rather than at the top of the next line, so
+        // that everything charged from now on - the sprite collision IRQ and
+        // the restore NMI below, the CIA interrupts in checkciatimers, and the
+        // raster IRQ at the top of the next line - lands in the next line's
+        // count instead of being wiped out by the reset.
+        numofcycles = 0;
         // TODO Add cycles access, > 63 gets subtracted from next rasterline
         checkciatimers(tmp);
         // draw rasterline
@@ -519,6 +758,9 @@ void IRAM_ATTR CPUC64::run() {
         // throttle CPU at end of frame, and wait for the frame to be displayed
         if (vic->rasterline == 311) {
             xSemaphoreTake(frameRateMutex, 1000);
+            // the menu can change the ports at any time, so pick the change up here
+            // instead of hitting the data store on every single CIA 1 read
+            updateJoystickPorts();
         }
     }
 }
@@ -548,6 +790,7 @@ void CPUC64::init(uint8_t* ram, uint8_t* charrom, VIC* vic, C64Emu* c64emu) {
     adjustcycles.store(0, std::memory_order_release);
     joystickmode         = 0;
     kbjoystickmode       = 0;
+    padjoystickmode      = 0;
     deactivateCIA2       = false;
     numofcycles          = 0;
     numofcyclespersecond = 0;
@@ -562,6 +805,30 @@ void CPUC64::init(uint8_t* ram, uint8_t* charrom, VIC* vic, C64Emu* c64emu) {
 
     // Setup Memory for first boot
     initMemAndRegs();
+}
+
+uint8_t CPUC64::getVirtJoyValue(bool port2) {
+    // Virtual joystick sources: the emulated keyboard joystick and a USB gamepad. In
+    // two player mode they sit on different ports, otherwise both drive the same one.
+    // All values are active low, so anding them wires the sources together.
+    uint8_t port = port2 ? 2 : 1;
+    uint8_t val  = 0xff;
+    if (kbjoystickmode == port) {
+        val &= c64emu->konsoolkb.getKBJoyValue();
+    }
+    if (padjoystickmode == port) {
+        val &= c64emu->konsoolkb.getGamepadJoyValue();
+    }
+    return val;
+}
+
+void CPUC64::updateJoystickPorts() {
+    uint8_t port   = (uint8_t)menuDataStore->getInt("kb_joystick_port", 0);
+    kbjoystickmode = port;
+    // in two player mode the gamepad takes the other port, so the keyboard joystick
+    // and the gamepad are two independent players
+    padjoystickmode =
+        (port != 0 && menuDataStore->getBool("two_player")) ? (uint8_t)(3 - port) : port;
 }
 
 void CPUC64::setPC(uint16_t newPC) {

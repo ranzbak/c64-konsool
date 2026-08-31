@@ -82,6 +82,16 @@ build: checkbuildenv
 
 # Tools
 
+# Copies a 1541 DOS ROM out of a local VICE install. The ROM is copyrighted and
+# is not in this repo. Pass the c64prg directory on a mounted card to put it
+# straight there, otherwise it lands in ./1541.rom to be copied by hand:
+#
+#   make drive-rom
+#   make drive-rom DEST=/run/media/$(USER)/SDCARD/c64prg
+.PHONY: drive-rom
+drive-rom:
+	tools/get-drive-rom.sh $(DEST)
+
 .PHONY: size
 size:
 	source "$(IDF_PATH)/export.sh" && idf.py size

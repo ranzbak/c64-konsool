@@ -12,6 +12,9 @@ class MenuController {
 
     MenuBaseClass* rootMenu;
     MenuBaseClass* currentMenu;
+    MenuBaseClass* previousMenu;
+
+    int prevJoystick;
 
     MenuBaseClass*       menusList;
     const MenuDataStore* menuDataStore = MenuDataStore::getInstance();
@@ -34,16 +37,15 @@ class MenuController {
 
     // Render the current menu to the framebuffer and update the display
     void render();
+    void drawChrome(int currentJoystick);
+    void drawScrollbar(size_t first, size_t rows, size_t total, size_t visible);
 
     void show();
     void hide();
     void toggle();
     bool getVisible() const;
 
-    void setCurrentMenu(MenuBaseClass* menu)
-    {
-        currentMenu = menu;
-    }
+    void setCurrentMenu(MenuBaseClass* menu);
     void gotoRootMenu()
     {
         setCurrentMenu(rootMenu);

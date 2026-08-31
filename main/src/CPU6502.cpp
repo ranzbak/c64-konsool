@@ -40,15 +40,19 @@ void CPU6502::modeAbsolute() {
 }
 
 void CPU6502::modeAbsoluteX() {
-    zl = getMem(pc++);
-    zh = getMem(pc++);
-    z  = (x + zl + (zh << 8));
+    zl           = getMem(pc++);
+    zh           = getMem(pc++);
+    uint16_t sum = (uint16_t)zl + x;
+    pagecrossed  = sum >> 8;
+    z            = sum + (zh << 8);
 }
 
 void CPU6502::modeAbsoluteY() {
-    zl = getMem(pc++);
-    zh = getMem(pc++);
-    z  = (y + zl + (zh << 8));
+    zl           = getMem(pc++);
+    zh           = getMem(pc++);
+    uint16_t sum = (uint16_t)zl + y;
+    pagecrossed  = sum >> 8;
+    z            = sum + (zh << 8);
 }
 
 void CPU6502::modeIndirectX() {
@@ -60,10 +64,15 @@ void CPU6502::modeIndirectX() {
 }
 
 void CPU6502::modeIndirectY() {
-    uint16_t q = getMem(pc++);
-    zl         = getMem(q++);
-    zh         = getMem(q);
-    z          = (y + zl + (zh << 8));
+    // The pointer lives in page zero and stays there: a pointer at $ff takes
+    // its high byte from $00, not from $0100. Making q a uint16_t let it walk
+    // out of the page.
+    uint8_t  q   = getMem(pc++);
+    zl           = getMem(q++);
+    zh           = getMem(q);
+    uint16_t sum = (uint16_t)zl + y;
+    pagecrossed  = sum >> 8;
+    z            = sum + (zh << 8);
 }
 
 void CPU6502::setNZ(uint8_t r) {
@@ -282,7 +291,6 @@ void CPU6502::cmd6502halt() {
 void CPU6502::cmd6502brk() {
     pc++;
     setPCToIntVec(getMem(0xfffe) + (getMem(0xffff) << 8), true);
-    numofcycles += 7;
 }
 
 void CPU6502::cmd6502oraIndirectX() {
@@ -298,7 +306,7 @@ void CPU6502::cmd6502oraZeropage() {
     uint8_t r  = getMem(z);
     a         |= r;
     atestandsetNZ();
-    numofcycles += 4;
+    numofcycles += 3;
 }
 
 void CPU6502::cmd6502aslZeropage() {
@@ -315,13 +323,15 @@ void CPU6502::php() {
 void CPU6502::cmd6502php() {
     bflag = true;
     php();
+    // php() itself is shared with setPCToIntVec, which charges its own 7.
+    numofcycles += 3;
 }
 
 void CPU6502::cmd6502oraImmediate() {
     uint8_t r  = getMem(pc++);
     a         |= r;
     atestandsetNZ();
-    numofcycles += 3;
+    numofcycles += 2;
 }
 
 void CPU6502::cmd6502aslA() {
@@ -346,8 +356,15 @@ void CPU6502::cmd6502aslAbsolute() {
 void CPU6502::cmd6502bpl() {
     int8_t r = getMem(pc++);
     if (!nflag) {
-        pc += r;
-        numofcycles++;
+        // pc already points at the next instruction, which is the base the
+        // chip compares the target against: 3 cycles inside the page, 4 out.
+        // The offset is at most 128 either way, so the two high bytes are
+        // either equal or one apart, and adding or subtracting one always
+        // flips bit 0. Testing that bit is therefore exact, and it keeps the
+        // whole thing arithmetic instead of a second conditional jump.
+        uint16_t target  = pc + r;
+        numofcycles     += 1 + (((pc ^ target) >> 8) & 1);
+        pc               = target;
     }
     numofcycles += 2;
 }
@@ -357,7 +374,7 @@ void CPU6502::cmd6502oraIndirectY() {
     uint8_t r  = getMem(z);
     a         |= r;
     atestandsetNZ();
-    numofcycles += 5;
+    numofcycles += 5 + pagecrossed;
 }
 
 void CPU6502::cmd6502oraZeropageX() {
@@ -384,7 +401,7 @@ void CPU6502::cmd6502oraAbsoluteY() {
     uint8_t r  = getMem(z);
     a         |= r;
     atestandsetNZ();
-    numofcycles += 4;
+    numofcycles += 4 + pagecrossed;
 }
 
 void CPU6502::cmd6502oraAbsoluteX() {
@@ -392,7 +409,7 @@ void CPU6502::cmd6502oraAbsoluteX() {
     uint8_t r  = getMem(z);
     a         |= r;
     atestandsetNZ();
-    numofcycles += 4;
+    numofcycles += 4 + pagecrossed;
 }
 
 void CPU6502::cmd6502aslAbsoluteX() {
@@ -496,8 +513,15 @@ void CPU6502::cmd6502rolAbsolute() {
 void CPU6502::cmd6502bmi() {
     int8_t r = getMem(pc++);
     if (nflag) {
-        pc += r;
-        numofcycles++;
+        // pc already points at the next instruction, which is the base the
+        // chip compares the target against: 3 cycles inside the page, 4 out.
+        // The offset is at most 128 either way, so the two high bytes are
+        // either equal or one apart, and adding or subtracting one always
+        // flips bit 0. Testing that bit is therefore exact, and it keeps the
+        // whole thing arithmetic instead of a second conditional jump.
+        uint16_t target  = pc + r;
+        numofcycles     += 1 + (((pc ^ target) >> 8) & 1);
+        pc               = target;
     }
     numofcycles += 2;
 }
@@ -507,7 +531,7 @@ void CPU6502::cmd6502andIndirectY() {
     uint8_t r  = getMem(z);
     a         &= r;
     atestandsetNZ();
-    numofcycles += 5;
+    numofcycles += 5 + pagecrossed;
 }
 
 void CPU6502::cmd6502andZeropageX() {
@@ -534,7 +558,7 @@ void CPU6502::cmd6502andAbsoluteY() {
     uint8_t r  = getMem(z);
     a         &= r;
     atestandsetNZ();
-    numofcycles += 4;
+    numofcycles += 4 + pagecrossed;
 }
 
 void CPU6502::cmd6502andAbsoluteX() {
@@ -542,7 +566,7 @@ void CPU6502::cmd6502andAbsoluteX() {
     uint8_t r  = getMem(z);
     a         &= r;
     atestandsetNZ();
-    numofcycles += 4;
+    numofcycles += 4 + pagecrossed;
 }
 
 void CPU6502::cmd6502rolAbsoluteX() {
@@ -623,8 +647,15 @@ void CPU6502::cmd6502lsrAbsolute() {
 void CPU6502::cmd6502bvc() {
     int8_t r = getMem(pc++);
     if (!vflag) {
-        pc += r;
-        numofcycles++;
+        // pc already points at the next instruction, which is the base the
+        // chip compares the target against: 3 cycles inside the page, 4 out.
+        // The offset is at most 128 either way, so the two high bytes are
+        // either equal or one apart, and adding or subtracting one always
+        // flips bit 0. Testing that bit is therefore exact, and it keeps the
+        // whole thing arithmetic instead of a second conditional jump.
+        uint16_t target  = pc + r;
+        numofcycles     += 1 + (((pc ^ target) >> 8) & 1);
+        pc               = target;
     }
     numofcycles += 2;
 }
@@ -634,7 +665,7 @@ void CPU6502::cmd6502eorIndirectY() {
     uint8_t r  = getMem(z);
     a         ^= r;
     atestandsetNZ();
-    numofcycles += 5;
+    numofcycles += 5 + pagecrossed;
 }
 
 void CPU6502::cmd6502eorZeropageX() {
@@ -661,7 +692,7 @@ void CPU6502::cmd6502eorAbsoluteY() {
     uint8_t r  = getMem(z);
     a         ^= r;
     atestandsetNZ();
-    numofcycles += 4;
+    numofcycles += 4 + pagecrossed;
 }
 
 void CPU6502::cmd6502eorAbsoluteX() {
@@ -669,7 +700,7 @@ void CPU6502::cmd6502eorAbsoluteX() {
     uint8_t r  = getMem(z);
     a         ^= r;
     atestandsetNZ();
-    numofcycles += 4;
+    numofcycles += 4 + pagecrossed;
 }
 
 void CPU6502::cmd6502lsrAbsoluteX() {
@@ -748,8 +779,15 @@ void CPU6502::cmd6502rorAbsolute() {
 void CPU6502::cmd6502bvs() {
     int8_t r = getMem(pc++);
     if (vflag) {
-        pc += r;
-        numofcycles++;
+        // pc already points at the next instruction, which is the base the
+        // chip compares the target against: 3 cycles inside the page, 4 out.
+        // The offset is at most 128 either way, so the two high bytes are
+        // either equal or one apart, and adding or subtracting one always
+        // flips bit 0. Testing that bit is therefore exact, and it keeps the
+        // whole thing arithmetic instead of a second conditional jump.
+        uint16_t target  = pc + r;
+        numofcycles     += 1 + (((pc ^ target) >> 8) & 1);
+        pc               = target;
     }
     numofcycles += 2;
 }
@@ -758,7 +796,7 @@ void CPU6502::cmd6502adcIndirectY() {
     modeIndirectY();
     uint8_t r = getMem(z);
     adcbase(r);
-    numofcycles += 5;
+    numofcycles += 5 + pagecrossed;
 }
 
 void CPU6502::cmd6502adcZeropageX() {
@@ -783,14 +821,14 @@ void CPU6502::cmd6502adcAbsoluteY() {
     modeAbsoluteY();
     uint8_t r = getMem(z);
     adcbase(r);
-    numofcycles += 4;
+    numofcycles += 4 + pagecrossed;
 }
 
 void CPU6502::cmd6502adcAbsoluteX() {
     modeAbsoluteX();
     uint8_t r = getMem(z);
     adcbase(r);
-    numofcycles += 4;
+    numofcycles += 4 + pagecrossed;
 }
 
 void CPU6502::cmd6502rorAbsoluteX() {
@@ -856,8 +894,15 @@ void CPU6502::cmd6502stxAbsolute() {
 void CPU6502::cmd6502bcc() {
     int8_t r = getMem(pc++);
     if (!cflag) {
-        pc += r;
-        numofcycles++;
+        // pc already points at the next instruction, which is the base the
+        // chip compares the target against: 3 cycles inside the page, 4 out.
+        // The offset is at most 128 either way, so the two high bytes are
+        // either equal or one apart, and adding or subtracting one always
+        // flips bit 0. Testing that bit is therefore exact, and it keeps the
+        // whole thing arithmetic instead of a second conditional jump.
+        uint16_t target  = pc + r;
+        numofcycles     += 1 + (((pc ^ target) >> 8) & 1);
+        pc               = target;
     }
     numofcycles += 2;
 }
@@ -1022,8 +1067,15 @@ void CPU6502::cmd6502ldxAbsolute() {
 void CPU6502::cmd6502bcs() {
     int8_t r = getMem(pc++);
     if (cflag) {
-        pc += r;
-        numofcycles++;
+        // pc already points at the next instruction, which is the base the
+        // chip compares the target against: 3 cycles inside the page, 4 out.
+        // The offset is at most 128 either way, so the two high bytes are
+        // either equal or one apart, and adding or subtracting one always
+        // flips bit 0. Testing that bit is therefore exact, and it keeps the
+        // whole thing arithmetic instead of a second conditional jump.
+        uint16_t target  = pc + r;
+        numofcycles     += 1 + (((pc ^ target) >> 8) & 1);
+        pc               = target;
     }
     numofcycles += 2;
 }
@@ -1032,7 +1084,7 @@ void CPU6502::cmd6502ldaIndirectY() {
     modeIndirectY();
     a = getMem(z);
     atestandsetNZ();
-    numofcycles += 5;
+    numofcycles += 5 + pagecrossed;
 }
 
 void CPU6502::cmd6502laxIndirectY() {
@@ -1040,7 +1092,7 @@ void CPU6502::cmd6502laxIndirectY() {
     a = getMem(z);
     x = a;
     atestandsetNZ();
-    numofcycles += 5;
+    numofcycles += 5 + pagecrossed;
 }
 
 void CPU6502::cmd6502ldyZeropageX() {
@@ -1081,7 +1133,7 @@ void CPU6502::cmd6502ldaAbsoluteY() {
     modeAbsoluteY();
     a = getMem(z);
     atestandsetNZ();
-    numofcycles += 4;
+    numofcycles += 4 + pagecrossed;
 }
 
 void CPU6502::cmd6502laxAbsoluteY() {
@@ -1089,7 +1141,7 @@ void CPU6502::cmd6502laxAbsoluteY() {
     a = getMem(z);
     x = a;
     atestandsetNZ();
-    numofcycles += 4;
+    numofcycles += 4 + pagecrossed;
 }
 
 void CPU6502::cmd6502tsx() {
@@ -1102,21 +1154,21 @@ void CPU6502::cmd6502ldyAbsoluteX() {
     modeAbsoluteX();
     y = getMem(z);
     ytestandsetNZ();
-    numofcycles += 4;
+    numofcycles += 4 + pagecrossed;
 }
 
 void CPU6502::cmd6502ldaAbsoluteX() {
     modeAbsoluteX();
     a = getMem(z);
     atestandsetNZ();
-    numofcycles += 4;
+    numofcycles += 4 + pagecrossed;
 }
 
 void CPU6502::cmd6502ldxAbsoluteY() {
     modeAbsoluteY();
     x = getMem(z);
     xtestandsetNZ();
-    numofcycles += 4;
+    numofcycles += 4 + pagecrossed;
 }
 
 void CPU6502::cmd6502cpyImmediate() {
@@ -1193,8 +1245,15 @@ void CPU6502::cmd6502decAbsolute() {
 void CPU6502::cmd6502bne() {
     int8_t r = getMem(pc++);
     if (!zflag) {
-        pc += r;
-        numofcycles++;
+        // pc already points at the next instruction, which is the base the
+        // chip compares the target against: 3 cycles inside the page, 4 out.
+        // The offset is at most 128 either way, so the two high bytes are
+        // either equal or one apart, and adding or subtracting one always
+        // flips bit 0. Testing that bit is therefore exact, and it keeps the
+        // whole thing arithmetic instead of a second conditional jump.
+        uint16_t target  = pc + r;
+        numofcycles     += 1 + (((pc ^ target) >> 8) & 1);
+        pc               = target;
     }
     numofcycles += 2;
 }
@@ -1203,7 +1262,7 @@ void CPU6502::cmd6502cmpIndirectY() {
     modeIndirectY();
     uint8_t r = getMem(z);
     cmpbase(a, r);
-    numofcycles += 5;
+    numofcycles += 5 + pagecrossed;
 }
 
 void CPU6502::cmd6502cmpZeropageX() {
@@ -1228,14 +1287,14 @@ void CPU6502::cmd6502cmpAbsoluteY() {
     modeAbsoluteY();
     uint8_t r = getMem(z);
     cmpbase(a, r);
-    numofcycles += 4;
+    numofcycles += 4 + pagecrossed;
 }
 
 void CPU6502::cmd6502cmpAbsoluteX() {
     modeAbsoluteX();
     uint8_t r = getMem(z);
     cmpbase(a, r);
-    numofcycles += 4;
+    numofcycles += 4 + pagecrossed;
 }
 
 void CPU6502::cmd6502decAbsoluteX() {
@@ -1316,8 +1375,15 @@ void CPU6502::cmd6502incAbsolute() {
 void CPU6502::cmd6502beq() {
     int8_t r = getMem(pc++);
     if (zflag) {
-        pc += r;
-        numofcycles++;
+        // pc already points at the next instruction, which is the base the
+        // chip compares the target against: 3 cycles inside the page, 4 out.
+        // The offset is at most 128 either way, so the two high bytes are
+        // either equal or one apart, and adding or subtracting one always
+        // flips bit 0. Testing that bit is therefore exact, and it keeps the
+        // whole thing arithmetic instead of a second conditional jump.
+        uint16_t target  = pc + r;
+        numofcycles     += 1 + (((pc ^ target) >> 8) & 1);
+        pc               = target;
     }
     numofcycles += 2;
 }
@@ -1326,7 +1392,7 @@ void CPU6502::cmd6502sbcIndirectY() {
     modeIndirectY();
     uint8_t r = getMem(z);
     sbcbase(r);
-    numofcycles += 6;
+    numofcycles += 5 + pagecrossed;
 }
 
 void CPU6502::cmd6502sbcZeropageX() {
@@ -1351,14 +1417,14 @@ void CPU6502::cmd6502sbcAbsoluteY() {
     modeAbsoluteY();
     uint8_t r = getMem(z);
     sbcbase(r);
-    numofcycles += 4;
+    numofcycles += 4 + pagecrossed;
 }
 
 void CPU6502::cmd6502sbcAbsoluteX() {
     modeAbsoluteX();
     uint8_t r = getMem(z);
     sbcbase(r);
-    numofcycles += 4;
+    numofcycles += 4 + pagecrossed;
 }
 
 void CPU6502::cmd6502incAbsoluteX() {
@@ -1500,7 +1566,7 @@ void CPU6502::cmd6502skwAbsolute() {
 
 void CPU6502::cmd6502skwAbsoluteX() {
     modeAbsoluteX();
-    numofcycles += 4;
+    numofcycles += 4 + pagecrossed;
 }
 
 void CPU6502::cmd6502shaZeropageY() {
@@ -1770,9 +1836,15 @@ void CPU6502::cmd6502xaaImmediate() {
 }
 
 void CPU6502::cmd6502sbxImmediate() {
+    // SBX, also called AXS: X = (A & X) - immediate. The subtraction ignores
+    // the carry and borrows the way a compare does, so the carry comes out set
+    // when (A & X) was the larger. Taking the AND after the subtraction only
+    // agrees with that by coincidence: A=$a0 X=$a0 #$e0 has to leave $c0 in X
+    // and left $80 instead.
     uint8_t r = getMem(pc++);
-    x         = a & (x - r);
-    cmpbase(a & x, r);
+    uint8_t t = static_cast<uint8_t>(a & x);
+    cmpbase(t, r);
+    x = static_cast<uint8_t>(t - r);
     numofcycles += 2;
 }
 
@@ -1785,7 +1857,7 @@ void CPU6502::cmd6502lasAbsolute() {
     x          = a;
     sp         = x;
     atestandsetNZ();
-    numofcycles += 4;
+    numofcycles += 4 + pagecrossed;
 }
 
 void CPU6502::cmd6502rlaZeropage() {
@@ -1902,4 +1974,7 @@ void CPU6502::setPCToIntVec(uint16_t intvect, bool intfrombrk) {
     iflag = true;
     // set pc
     pc    = intvect;
+    // Pushing the return address and the status and fetching the vector takes
+    // seven cycles, whether the entry came from BRK or from a hardware line.
+    numofcycles += 7;
 }

@@ -37,28 +37,33 @@ class VIC {
     inline void drawByteMCData(uint8_t data, uint16_t& idx, uint16_t& xp, uint16_t* tftColArr, bool* collArr,
                                uint8_t dx) __attribute__((always_inline));
     void        drawblankline(uint8_t line);
-    inline void shiftDy(uint8_t line, int8_t dy, uint16_t bgcol) __attribute__((always_inline));
+    inline void shiftDy(uint8_t line) __attribute__((always_inline));
     inline void shiftDx(uint8_t dx, uint16_t bgcol, uint16_t& idx) __attribute__((always_inline));
     inline void drawOnly38ColsFrame(uint16_t tmpidx) __attribute__((always_inline));
     inline void drawStdCharModeInt(uint8_t* screenMap, uint16_t bgcol, uint8_t row, uint8_t dx, uint16_t& xp,
                                    uint16_t idxmap, uint16_t& idx) __attribute__((always_inline));
-    void        drawStdCharMode(uint8_t* screenMap, uint8_t bgColor, uint8_t line, int8_t dy, uint8_t dx);
+    void        drawStdCharMode(uint8_t* screenMap, uint8_t bgColor, uint8_t line, uint8_t dx, uint16_t vcline,
+                                uint8_t rcline);
     inline void drawExtBGColCharModeInt(uint8_t* screenMap, uint8_t* bgColArr, uint8_t row, uint8_t dx, uint16_t& xp,
                                         uint16_t idxmap, uint16_t& idx) __attribute__((always_inline));
-    void        drawExtBGColCharMode(uint8_t* screenMap, uint8_t* bgColArr, uint8_t line, int8_t dy, uint8_t dx);
+    void        drawExtBGColCharMode(uint8_t* screenMap, uint8_t* bgColArr, uint8_t line, uint8_t dx, uint16_t vcline,
+                                     uint8_t rcline);
     inline void drawMCCharModeInt(uint8_t* screenMap, uint16_t bgcol, uint16_t* tftColArr, uint8_t row, uint8_t dx,
                                   uint16_t& xp, uint16_t idxmap, uint16_t& idx) __attribute__((always_inline));
     void        drawMCCharMode(uint8_t* screenMap, uint8_t bgColor1, uint8_t bgColor2, uint8_t bgColor3, uint8_t line,
-                               int8_t dy, uint8_t dx);
+                               uint8_t dx, uint16_t vcline, uint8_t rcline);
     inline void drawMCBitmapModeInt(uint8_t* multicolorBitmap, uint8_t* colorMap1, uint16_t* tftColArr, uint16_t cidx,
                                     uint16_t mcidx, uint8_t row, uint8_t dx, uint16_t& xp, uint16_t& idx)
         __attribute__((always_inline));
     void        drawMCBitmapMode(uint8_t* multicolorBitmap, uint8_t* colorMap1, uint8_t backgroundColor, uint8_t line,
-                                 int8_t dy, uint8_t dx);
+                                 uint8_t dx, uint16_t vcline, uint8_t rcline);
     inline void drawStdBitmapModeInt(uint8_t* hiresBitmap, uint8_t* colorMap, uint16_t hiidx, uint16_t& colidx,
                                      uint8_t row, uint8_t dx, uint16_t& xp, uint16_t& idx)
         __attribute__((always_inline));
-    void        drawStdBitmapMode(uint8_t* hiresBitmap, uint8_t* colorMap, uint8_t line, int8_t dy, uint8_t dx);
+    void        drawStdBitmapMode(uint8_t* hiresBitmap, uint8_t* colorMap, uint8_t line, uint8_t dx, uint16_t vcline,
+                                  uint8_t rcline);
+    void        drawIdleMode(uint8_t bgColor, uint8_t line, uint8_t dx, bool ecm, bool bmm, bool mcm);
+    void        drawBlackLine(uint8_t line);
     void        drawSpriteDataSC(uint8_t bitnr, int16_t xpos, uint8_t ypos, uint8_t* data, uint8_t color);
     void        drawSpriteDataSCDS(uint8_t bitnr, int16_t xpos, uint8_t ypos, uint8_t* data, uint8_t color);
     inline void drawSpriteDataMC2Bits(uint8_t idxc, uint16_t& idx, int16_t& xpos, uint8_t bitnr, uint16_t* tftcolor)
@@ -85,6 +90,18 @@ class VIC {
     uint16_t  bitmapstart;
     uint16_t  screenmemstart;
     uint16_t  rasterline;
+    // The VIC's own fetch counters, named the way Frodo names them (src/VIC.h:
+    // vc, vc_base, rc, display_state). VC is the index into the screen matrix
+    // and colour RAM, VCBASE the value it is reloaded from at the start of
+    // every raster line, RC the row within the character. They are the only
+    // thing YSCROLL is allowed to move: a bad line resets RC and pulls the VIC
+    // out of the idle state, and a demo that keeps the bad line from firing
+    // freezes both, which is what stretches the last row down the screen.
+    uint16_t  vc;
+    uint16_t  vcbase;
+    uint8_t   rc;
+    bool      displaystate;
+    bool      badlinesenabled;
     uint8_t   syncd020;
     bool      screenblank;
     uint16_t* bordercolors;

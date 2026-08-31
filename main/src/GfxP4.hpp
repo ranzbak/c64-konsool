@@ -19,6 +19,7 @@
 #include <cstdint>
 #include "Config.hpp"
 #include "DisplayDriver.hpp"
+#include "bsp/display.h"
 #include "driver/ppa.h"
 #include "esp_lcd_types.h"
 #include "hal/lcd_types.h"
@@ -52,16 +53,16 @@ class GfxP4 : public DisplayDriver {
 
     pax_buf_t c64_buf;
 
-    pax_buf_t                    fb;
-    uint16_t*                    raw_fb;
-    esp_lcd_panel_handle_t       display_lcd_panel;
-    esp_lcd_panel_io_handle_t    display_lcd_panel_io;
-    lcd_color_rgb_pixel_format_t display_color_format;
-    size_t                       border_width;
-    size_t                       border_height;
-    size_t                       display_h_res;
-    size_t                       display_v_res;
-    uint16_t                     frame_mem_size;
+    pax_buf_t                  fb;
+    uint16_t*                  raw_fb;
+    esp_lcd_panel_handle_t     display_lcd_panel;
+    esp_lcd_panel_io_handle_t  display_lcd_panel_io;
+    bsp_display_color_format_t display_color_format;
+    size_t                     border_width;
+    size_t                     border_height;
+    size_t                     display_h_res;
+    size_t                     display_v_res;
+    uint16_t                   frame_mem_size;
 
     // Text rendering buffer
     pax_buf_t buffer;

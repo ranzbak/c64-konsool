@@ -9,12 +9,13 @@
 #include <cstdint>
 #include "Config.hpp"
 #include "esp_log.h"
+#include "esp_attr.h"
 #include "precalc.hpp"
 // #include "precalc.h"
 
 typedef uint8_t byte;
 
-const uint8_t FILTSW[9] = {1, 2, 4, 1, 2, 4, 1, 2, 4};
+static DRAM_ATTR const uint8_t FILTSW[9] = {1, 2, 4, 1, 2, 4, 1, 2, 4};
 
 // sample output buffer
 int16_t  sample_buffer[SAMPLE_BUFFER_SIZE];
@@ -30,9 +31,9 @@ void SID::cSID_init()
     clock_ratio = C64_PAL_CPUCLK / DEFAULT_SAMPLERATE;
     if (CLOCK_RATIO > 9) {
         ADSRperiods[0] = CLOCK_RATIO;
-        ADSRstep[0]    = ceil(CLOCK_RATIO / 9.0);
+        ADSRstep[0]    = ceilf(CLOCK_RATIO / 9.0f);
     } else {
-        ADSRperiods[0] = 9.0;
+        ADSRperiods[0] = 9.0f;
         ADSRstep[0]    = 1;
     }
 
@@ -43,7 +44,7 @@ void SID::cSID_init()
     cap_6581_reciprocal = -1000000 / CAP_6581;  // lighten CPU-load in sample-callback
     cutoff_steepness_6581 =
         FILTER_DARKNESS_6581 *
-        (2048.0 - VCR_FET_TRESHOLD);  // pre-scale for 0...2048 cutoff-value range //lighten CPU-load in sample-callback
+        (2048.0f - VCR_FET_TRESHOLD);  // pre-scale for 0...2048 cutoff-value range //lighten CPU-load in sample-callback
 
     // cutoff_bottom_6581 = 1 - exp( -1 / (0.000000000470*1500000) / samplerate ); // 1 - exp( -2 * 3.14 *
     // (26000/pow(2,9)/0.47) / samplerate ); //around 140..220Hz cutoff is set by VCR-MOSFET limiter/shunt-resistor
@@ -69,6 +70,10 @@ void SID::cSID_init()
         prevSR[i]     = 0;
         noise_LFSR[i] = 0x7FFFFF;
         prevwfout[i]  = 0;
+    }
+
+    for (i = 0; i < 256; i++) {
+        combined_addf[i] = 0.4f + 0.6f / (i == 0 ? 1 : i);  // avoid division by zero
     }
 
     for (i = 0; i < 3; i++) {
@@ -114,11 +119,23 @@ void SID::init(uint8_t* memory, AudioCallback audio_callback, int SID_model)
 }
 
 // Run the SID cycles the correct amount te keep in sync with the scan lines
-void SID::raster_line()
+// The filter is the only state that differs in meaning between the models, and
+// left alone it would ring at whatever the other model's curve had built up.
+void SID::setModel(int model)
 {
-    scan_line_sync += (float)SAMPLES_PER_SCAN_LINE;
+    ESP_LOGI("SID", "Switching to SID model %d", model);
+    for (int i = 0; i < 3; i++) {
+        SID_model[i]    = model;
+        prevlowpass[i]  = 0;
+        prevbandpass[i] = 0;
+    }
+}
+
+void IRAM_ATTR SID::raster_line()
+{
+    scan_line_sync += SAMPLES_PER_SCAN_LINE;
     // scan_line_sync    += nr_samples;
-    while (scan_line_sync > 1.0) {
+    while (scan_line_sync > 1.0f) {
         // baseaddr 0x0000 because the memory presented to the SID is SID the IO area only.
         sample_buffer[sample_buffer_pos++] = cycle(0, 0x0000);
 
@@ -128,15 +145,15 @@ void SID::raster_line()
             sample_buffer_pos = 0;
         }
 
-        scan_line_sync -= 1.0;
+        scan_line_sync -= 1.0f;
     }
 }
 
 // Based on Schraudolph's "A Fast, Compact Approximation of the Exponential Function"
-float fast_exp(float x)
+static inline float IRAM_ATTR fast_exp(float x)
 {  // e^x
     // valid range -104.0 < x < 88.0
-    int32_t i = int32_t(12102203 * x + 1065353216);
+    int32_t i = int32_t(12102203.0f * x + 1065353216.0f);
     float   y;
     memcpy(&y, &i, sizeof y);  // avoid UB
     return y;
@@ -154,16 +171,14 @@ float fast_exp(float x)
 // Note that I avoided many internal/automatic variables from the SID function, assuming better speed this way. (Not
 // using stack as much, but I'm not sure and it may depend on platform...) (The same is true for CPU emulation and
 // player-code.)
-int SID::cycle(unsigned char num,
-               uint32_t      baseaddr)  // the SID emulation itself ('num' is the number of SID to iterate (0..2)
+int IRAM_ATTR SID::cycle(unsigned char num,
+                         uint32_t      baseaddr)  // the SID emulation itself ('num' is the number of SID to iterate (0..2)
 {
-    // better keep these variables static so they won't slow down the routine like if they were internal automatic
-    // variables always recreated
-    static byte     channel, ctrl, SR, prevgate, wf, test, *sReg, *vReg;
-    static uint32_t accuadd, MSB, pw, wfout;
-    static int32_t  step, lim, nonfilt, filtin, filtout, output;
-    static int32_t  tmp;
-    static float    period, steep, rDS_VCR_FET, cutoff[3], resonance[3], ftmp;
+    byte     channel, ctrl, SR, prevgate, wf, test, *sReg, *vReg;
+    uint32_t accuadd, MSB, pw, wfout = 0;
+    int32_t  step, lim, nonfilt, filtin, filtout, output;
+    int32_t  tmp;
+    float    period, steep, rDS_VCR_FET, cutoff, resonance, ftmp;
 
     filtin = nonfilt = 0;
     sReg             = &memory[baseaddr];
@@ -282,7 +297,7 @@ int SID::cycle(unsigned char num,
                 // time-domain, but altering the transfer-characteristics. This had to be done in a frequency-dependent
                 // way, proportionally to pitch, to keep the deep sounds crisp. The following code does this (my
                 // favourite testcase is Robocop3 intro):
-                step = (accuadd >= 255) ? 65535 / (accuadd / 256.0)
+                step = (accuadd >= 255) ? 16776960U / accuadd
                                         : 0xFFFF;  // simple pulse, most often used waveform, make it sound as clean as
                                                    // possible without oversampling
                 if (test)
@@ -330,7 +345,7 @@ int SID::cycle(unsigned char num,
             if (wf & TRI_BITMASK)
                 wfout = combinedWF(num, channel, TriSaw_8580, wfout >> 4, 1, vReg[1]);  // saw+triangle
             else {  // simple cleaned (bandlimited) saw
-                steep = (accuadd / 65536.0) / 288.0;
+                steep = accuadd * SAW_STEEP_RATIO;
                 if (steep == 0) steep = 1;  // avoid division by zero
                 wfout += wfout * steep;
                 if (wfout > 0xFFFF) wfout = 0xFFFF - (wfout - 0x10000) / steep;
@@ -372,42 +387,44 @@ int SID::cycle(unsigned char num,
     // cca. 1.53Mohm resistor in parallel with the MOSFET in 6581 which doesn't let the frequency go below 200..220Hz
     // Even if the MOSFET doesn't conduct at all. 470pF capacitors are small, so 6581 can't go below this
     // cutoff-frequency with 1.5MOhm.)
-    cutoff[num] = sReg[0x16] * 8 + (sReg[0x15] & 0x07);  // 11-bit frequency control 0-2048 at ~6.1 Hz / inc
-    if (SID_model[num] == 8580) {
-        cutoff[num] = (1 - fast_exp(((cutoff[num]) + 2) * CUTOFF_RATIO_8580));  // linear curve by resistor-ladder VCR
-        // resonance[num] = ( powf(2, ((4 - (sReg[0x17] >> 4)) / 8.0)) );
-        resonance[num] = resonance_table[sReg[0x17] >> 4];
-    } else {  // 6581
-        cutoff[num] +=
-            round(filtin * FILTER_DISTORTION_6581);  // MOSFET-VCR control-voltage-modulation (resistance-modulation aka
-                                                     // 6581 filter distortion) emulation
-        rDS_VCR_FET =
-            cutoff[num] <= VCR_FET_TRESHOLD
-                ? 100000000.0  // below Vth treshold Vgs control-voltage FET presents an open circuit
-                : cutoff_steepness_6581 /
-                      (cutoff[num] -
-                       VCR_FET_TRESHOLD);  // rDS ~ (-Vth*rDSon) / (Vgs-Vth)  //above Vth FET drain-source resistance is
-                                           // proportional to reciprocal of cutoff-control voltage
-        cutoff[num] =
-            (1 - fast_exp(cap_6581_reciprocal / (VCR_SHUNT_6581 * rDS_VCR_FET / (VCR_SHUNT_6581 + rDS_VCR_FET)) /
-                          DEFAULT_SAMPLERATE));  // curve with 1.5MOhm VCR parallel Rshunt emulation
-        resonance[num] = ((sReg[0x17] > 0x5F) ? 8.0 / (sReg[0x17] >> 4) : 1.41);
-    }
     filtout = 0;
-    ftmp     = filtin + prevbandpass[num] * resonance[num] + prevlowpass[num];
-    if (sReg[0x18] & (HIGHPASS_BITMASK | BANDPASS_BITMASK)) {
-        filtout -= ftmp;
-    }
-    ftmp              = prevbandpass[num] - ftmp * cutoff[num];
-    prevbandpass[num] = ftmp;
-    if (sReg[0x18] & BANDPASS_BITMASK) {
-        filtout -= ftmp;
-    }
-    // ftmp             = (prevlowpass[num] << 1)  + ftmp * cutoff[num];
-    ftmp = (1-cutoff[num]) * (ftmp - prevlowpass[num]);
-    prevlowpass[num] = ftmp;
-    if (sReg[0x18] & LOWPASS_BITMASK) {
-        filtout += ftmp;
+    // With no voice routed in and nothing left ringing there is nothing to compute.
+    if ((sReg[0x17] & 0x07) || prevlowpass[num] || prevbandpass[num]) {
+        uint16_t cutoffReg = sReg[0x16] * 8 + (sReg[0x15] & 0x07);  // 11-bit frequency control 0-2048 at ~6.1 Hz / inc
+        if (SID_model[num] == 8580) {
+            if (cutoffReg != cutoff_reg[num]) {
+                cutoff_reg[num]  = cutoffReg;
+                cutoff_8580[num] = 1 - fast_exp((cutoffReg + 2) * CUTOFF_RATIO_8580);  // linear curve by resistor-ladder VCR
+            }
+            cutoff    = cutoff_8580[num];
+            resonance = resonance_table[sReg[0x17] >> 4];
+        } else {  // 6581
+            cutoff = cutoffReg + roundf(filtin * FILTER_DISTORTION_6581);  // MOSFET-VCR control-voltage-modulation (resistance-modulation aka
+                                                                           // 6581 filter distortion) emulation
+            rDS_VCR_FET =
+                cutoff <= VCR_FET_TRESHOLD
+                    ? 100000000.0f  // below Vth treshold Vgs control-voltage FET presents an open circuit
+                    : cutoff_steepness_6581 /
+                          (cutoff - VCR_FET_TRESHOLD);  // rDS ~ (-Vth*rDSon) / (Vgs-Vth)  //above Vth FET drain-source resistance is
+                                                        // proportional to reciprocal of cutoff-control voltage
+            cutoff = 1 - fast_exp(cap_6581_reciprocal / (VCR_SHUNT_6581 * rDS_VCR_FET / (VCR_SHUNT_6581 + rDS_VCR_FET)) /
+                                  DEFAULT_SAMPLERATE);  // curve with 1.5MOhm VCR parallel Rshunt emulation
+            resonance = (sReg[0x17] > 0x5F) ? 8.0f / (sReg[0x17] >> 4) : 1.41f;
+        }
+        ftmp = filtin + prevbandpass[num] * resonance + prevlowpass[num];
+        if (sReg[0x18] & (HIGHPASS_BITMASK | BANDPASS_BITMASK)) {
+            filtout -= ftmp;
+        }
+        ftmp              = prevbandpass[num] - ftmp * cutoff;
+        prevbandpass[num] = ftmp;
+        if (sReg[0x18] & BANDPASS_BITMASK) {
+            filtout -= ftmp;
+        }
+        ftmp             = (1 - cutoff) * (ftmp - prevlowpass[num]);
+        prevlowpass[num] = ftmp;
+        if (sReg[0x18] & LOWPASS_BITMASK) {
+            filtout += ftmp;
+        }
     }
 
     // output stage for one SID
@@ -486,14 +503,12 @@ int SID::cycle(unsigned char num,
 // in case you don't like these calculated combined waveforms it's easy to substitute the generated tables by
 // pre-sampled 'exact' versions
 
-int32_t SID::combinedWF(uint8_t num, uint8_t channel, const uint32_t* wfarray, int index, char differ6581,
-                        uint8_t freqh)
+int32_t IRAM_ATTR SID::combinedWF(uint8_t num, uint8_t channel, const uint32_t* wfarray, int index, char differ6581,
+                                  uint8_t freqh)
 {
-    static float addf;
-    if (freqh == 0) freqh = 1;  // avoid division by zero
-    addf = 0.4 + 0.6 / freqh;
+    float addf = combined_addf[freqh];
     if (differ6581 && SID_model[num] == 6581) index &= 0x7FF;
-    prevwavdata[channel] = wfarray[index] * addf + prevwavdata[channel] * (1.0 - addf);
+    prevwavdata[channel] = wfarray[index] * addf + prevwavdata[channel] * (1.0f - addf);
     return prevwavdata[channel];
 }
 

@@ -13,31 +13,31 @@ typedef void (*AudioCallback)(int16_t* samples, size_t num_samples);
 #define DEFAULT_SIDMODEL SIDMODEL_8580
 
 // carefully otherwise some ADSR-sensitive tunes may suffer more:
-#define DEFAULT_SAMPLERATE 22050.0
+#define DEFAULT_SAMPLERATE 22050.0f
 // 11025.0  //(Soldier of Fortune, 2nd Reality, Alliance, X-tra energy, Jackal,
 // 16000.0 //(Soldier of Fortune, 2nd Reality, Alliance, X-tra energy, Jackal,
 // Sanxion, Ultravox, Hard Track, Swing, Myth, LN3, etc.)
-#define CLOCK_RATIO_DEFAULT \
-    C64_PAL_CPUCLK / DEFAULT_SAMPLERATE  //(50.0567520: lowest framerate where Sanxion is fine,
-                                         // and highest where Myth is almost fine)
+#define CLOCK_RATIO_DEFAULT (C64_PAL_CPUCLK / DEFAULT_SAMPLERATE)
 #define VCR_SHUNT_6581 \
     1500  // kOhm //cca 1.5 MOhm Rshunt across VCR FET drain and source (causing
           // 220Hz bottom cutoff with 470pF integrator capacitors in old C64)
 #define VCR_FET_TRESHOLD \
     192                 // Vth (on cutoff numeric range 0..2048) for the VCR cutoff-frequency
                         // control FET below which it doesn't conduct
-#define CAP_6581 0.470  // nF //filter capacitor value for 6581
+#define CAP_6581 0.470f  // nF //filter capacitor value for 6581
 #define FILTER_DARKNESS_6581 \
-    22.0  // the bigger the value, the darker the filter control is (that is,
+    22.0f  // the bigger the value, the darker the filter control is (that is,
           // cutoff frequency increases less with the same cutoff-value)
 #define FILTER_DISTORTION_6581 \
-    0.0016  // the bigger the value the more of resistance-modulation (filter
+    0.0016f  // the bigger the value the more of resistance-modulation (filter
             // distortion) is applied for 6581 cutoff-control
-#define SAMPLES_PER_SCAN_LINE 63 / (CLOCK_RATIO_DEFAULT)
+#define SAMPLES_PER_SCAN_LINE (63 / CLOCK_RATIO_DEFAULT)
 
 #define SAMPLE_BUFFER_SIZE 32
-#define CUTOFF_RATIO_8580  (-2 * 3.14 * (12500.0 / 2048) / DEFAULT_SAMPLERATE)  // 12500.0 / 2048 ~= 6 Hz / inc
-#define CLOCK_RATIO        (C64_PAL_CPUCLK / DEFAULT_SAMPLERATE)
+#define CUTOFF_RATIO_8580  (-2 * 3.14f * (12500.0f / 2048) / DEFAULT_SAMPLERATE)  // 12500.0 / 2048 ~= 6 Hz / inc
+#define CLOCK_RATIO        CLOCK_RATIO_DEFAULT
+// The sawtooth edge steepness per unit of phase increment, 1 / (65536 * 288)
+#define SAW_STEEP_RATIO    (1.0f / 18874368.0f)
 
 // raw output divided by this after multiplied by main volume, this also
 //  compensates for filter-resonance emphasis to avoid distortion
@@ -71,6 +71,11 @@ class SID {
     uint32_t      prevwfout[9], prevwavdata[9], sourceMSB[3], noise_LFSR[9];
     int32_t       phaseaccu[9], prevaccu[9], prevlowpass[3], prevbandpass[3];
     float         ratecnt[9], cutoff_steepness_6581, cap_6581_reciprocal;
+    // The 8580 cutoff is a pure function of two registers that rarely change.
+    uint16_t      cutoff_reg[3]       = {0xFFFF, 0xFFFF, 0xFFFF};
+    float         cutoff_8580[3];
+    // 0.4 + 0.6 / freqh, the smoothing used for combined waveforms.
+    float         combined_addf[256];
     float         clock_ratio = CLOCK_RATIO_DEFAULT;
     uint8_t*      memory;
     float         scan_line_sync = 0.0;
@@ -86,6 +91,7 @@ class SID {
     SID();
     void cSID_init();
     void init(uint8_t* memory, AudioCallback sample_out_callback = nullptr, int sid_model = 8580);
+    void setModel(int model);
     void raster_line();
     int  cycle(unsigned char num, uint32_t baseaddr);
 };

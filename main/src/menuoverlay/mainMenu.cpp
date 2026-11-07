@@ -11,6 +11,7 @@
 
 extern "C" {
 #include "bsp/audio.h"
+#include "sid/sid.hpp"
 #include "bsp/device.h"
 }
 
@@ -19,6 +20,13 @@ static const char* JOYSTICK_PORT_VALUE_NAME = "kb_joystick_port";
 
 // Most games use port 2
 static const int JOYSTICK_PORT_DEFAULT = 2;
+
+static const char* const SID_MODEL_VALUE_NAME = "sid_model";
+
+static std::string sidModelTitle(int model)
+{
+    return model == SIDMODEL_6581 ? "SID chip: 6581 (original)" : "SID chip: 8580 (later)";
+}
 
 static std::string joystickPortTitle(int port)
 {
@@ -40,6 +48,8 @@ void MainMenu::update()
     for (auto& item : items) {
         if (item.value_name == JOYSTICK_PORT_VALUE_NAME) {
             item.title = joystickPortTitle(menuDataStore->getInt(JOYSTICK_PORT_VALUE_NAME, JOYSTICK_PORT_DEFAULT));
+        } else if (item.value_name == SID_MODEL_VALUE_NAME) {
+            item.title = sidModelTitle(menuDataStore->getInt(SID_MODEL_VALUE_NAME, DEFAULT_SIDMODEL));
         }
     }
 }
@@ -155,6 +165,24 @@ bool MainMenu::init()
         bsp_audio_set_amplifier(enabled);
     };
     items.push_back(*speaker_emu);
+
+    // Which SID the C64 has. Tunes are written for one or the other, and the
+    // filters differ enough to hear. Takes effect at once, no reset needed.
+    MenuItem* sid_model   = new MenuItem();
+    sid_model->id         = id_count++;
+    sid_model->type       = MenuItemType::ACTION;
+    sid_model->value_name = SID_MODEL_VALUE_NAME;
+    sid_model->title      = sidModelTitle(DEFAULT_SIDMODEL);
+    menuDataStore->set(SID_MODEL_VALUE_NAME, DEFAULT_SIDMODEL);
+    sid_model->action = [this](MenuItem* item) {
+        (void)item;
+        MenuDataStore* menuDataStore = MenuDataStore::getInstance();
+        int model = menuDataStore->getInt(SID_MODEL_VALUE_NAME, DEFAULT_SIDMODEL) == SIDMODEL_8580 ? SIDMODEL_6581
+                                                                                                   : SIDMODEL_8580;
+        menuDataStore->set(SID_MODEL_VALUE_NAME, model);
+        c64emu->setSidModel(model);
+    };
+    items.push_back(*sid_model);
 
     // Add menu items here
     MenuItem* reset_item = new MenuItem();

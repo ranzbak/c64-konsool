@@ -104,6 +104,7 @@ class C64Emu {
     MenuController menuController;
     ExternalCmds   externalCmds;
     bool           perf           = false;
+    void           setSidModel(int model) { sid.setModel(model); }
     uint32_t       batteryVoltage = 0;
 
     void powerOff();

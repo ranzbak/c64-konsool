@@ -19,7 +19,7 @@
 #include <cstdint>
 #include "soc/gpio_num.h"
 
-#define C64_PAL_CPUCLK     985248.0
+#define C64_PAL_CPUCLK     985248.0f
 #define SID_CHANNEL_AMOUNT 3
 #define LINES_PER_FRAME    312
 #define PAL_FRAMERATE      50.1245419

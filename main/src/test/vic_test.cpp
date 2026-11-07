@@ -36,7 +36,20 @@
 #include "VIC.hpp"
 #include "sid/sid.hpp"
 
-extern unsigned char charset_rom[];
+// The character ROM is not in the repo any more, and these tests only compare
+// the VIC's pixels against the glyphs they were given, so any varied data does.
+// Filled in by fillCharset() before the first Machine is built.
+unsigned char charset_rom[4096];
+
+static void fillCharset()
+{
+    for (size_t i = 0; i < sizeof(charset_rom); i++) {
+        charset_rom[i] = static_cast<unsigned char>((i * 37 + (i >> 3) * 11) ^ 0x5a);
+    }
+    // Space is blank, as in the real ROM. testEveryColumnIsFetched() reads the
+    // background from it.
+    memset(charset_rom + 0x20 * 8, 0, 8);
+}
 
 static int checks   = 0;
 static int failures = 0;
@@ -567,6 +580,8 @@ static void testSpriteYExpansion()
 
 int main()
 {
+    fillCharset();
+
     printf("VIC rendering\n\n");
     testStandardTextMode();
     testEveryColumnIsFetched();

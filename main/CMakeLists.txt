@@ -50,7 +50,7 @@ idf_component_register(
 
 # add_subdirectory(src)
 
-target_compile_options(${COMPONENT_LIB} PRIVATE -std=gnu++11)
+target_compile_options(${COMPONENT_LIB} PRIVATE $<$<COMPILE_LANGUAGE:CXX>:-std=gnu++11>)
 
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fexceptions")

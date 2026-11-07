@@ -13,7 +13,6 @@
 #include "esp_err.h"
 #include "esp_log.h"
 #include "esp_vfs_fat.h"
-#include "hal/ldo_types.h"
 
 static const char* TAG = "SDCard";
 

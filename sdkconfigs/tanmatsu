@@ -33,3 +33,9 @@ CONFIG_CUSTOM_CA_TANMATSU_APPS=y
 CONFIG_CUSTOM_CA_TANMATSU_OTA=y
 CONFIG_LCD_DSI_ISR_IRAM_SAFE=y
 CONFIG_SPI_FLASH_SUPPORT_GD_CHIP=y
+# Build for ESP32P4, not ESP32P4X. Without this the image asks for a newer chip
+# than the one on the badge and the bootloader drops it: reset loop, dark screen.
+CONFIG_ESP32P4_SELECTS_REV_LESS_V3=y
+CONFIG_ESP32P4_REV_MIN_1=y
+CONFIG_ESP32P4_REV_MIN_FULL=1
+CONFIG_ESP_REV_MIN_FULL=1

@@ -84,11 +84,13 @@ void GfxP4::init()
     ppa_srm_config = {
         .oper_type             = PPA_OPERATION_SRM,
         .max_pending_trans_num = 1,
+        .data_burst_length     = PPA_DATA_BURST_LENGTH_128,
     };
     ESP_ERROR_CHECK(ppa_register_client(&ppa_srm_config, &ppa_srm_handle));
     ppa_fill_config = {
         .oper_type             = PPA_OPERATION_FILL,
         .max_pending_trans_num = 1,
+        .data_burst_length     = PPA_DATA_BURST_LENGTH_128,
     };
     ESP_ERROR_CHECK(ppa_register_client(&ppa_fill_config, &ppa_fill_handle));
 

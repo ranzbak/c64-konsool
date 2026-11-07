@@ -1,5 +1,7 @@
 dependencies:
   idf:
     version: ">=5.3.0"
-  badgeteam/badge-bsp: "^0.9.2"
-  robotman2412/pax-gfx: "^1.1.2"
+  badgeteam/badge-bsp: "=1.0.0"
+  robotman2412/pax-gfx: "=1.1.2"
+  robotman2412/pax-codecs: "=1.0.1"
+  nicolaielectronics/tanmatsu-settings: "=1.1.0"

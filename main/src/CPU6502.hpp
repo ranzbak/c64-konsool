@@ -25,6 +25,10 @@ private:
   uint8_t zl;
   uint8_t zh;
   uint16_t z;
+  // 1 when the last indexed address mode carried the index into the high
+  // byte. Read instructions in those modes spend an extra cycle when it does,
+  // because the chip has to redo the read with the corrected high byte.
+  uint8_t pagecrossed = 0;
 
   inline void modeZeropage() __attribute__((always_inline));
   inline void modeZeropageX() __attribute__((always_inline));

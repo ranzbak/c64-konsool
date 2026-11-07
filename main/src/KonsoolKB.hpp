@@ -34,8 +34,10 @@ class KonsoolKB {
     MenuController* menuController;
     MenuDataStore*  menuDataStore = MenuDataStore::getInstance();
 
-    uint8_t sentdc01;
-    uint8_t sentdc00;
+    // C64 keyboard matrix, one bit per column per row (0 = pressed), plus
+    // a column->row mirror for the reverse-direction CIA port read
+    uint8_t keyarr[8];
+    uint8_t rev_keyarr[8];
 
     QueueHandle_t input_event_queue;
 
@@ -47,11 +49,6 @@ class KonsoolKB {
    public:
     bool     deviceConnected;
     uint8_t* buffer;
-    // shiftctrlcode: bit 0 -> shift
-    //                bit 1 -> ctrl
-    //                bit 2 -> commodore
-    //                bit 7 -> external command (cmd, x, 128)
-    uint8_t  shiftctrlcode;
     uint8_t  keypresseddowncnt;
     uint8_t  virtjoystickvalue;
     bool     keypresseddown;
@@ -60,7 +57,9 @@ class KonsoolKB {
     KonsoolKB();
     void    init(C64Emu* c64emu);
     void    handleKeyPress();
+    void    handleGamepadMenuInput();
     uint8_t getdc01(uint8_t dc00, bool xchgports);
-    uint8_t getKBJoyValue(bool port2);
-    void    setKbcodes(uint8_t sentdc01, uint8_t sentdc00);
+    uint8_t getKBJoyValue();
+    uint8_t getGamepadJoyValue();
+    void    setKbcodes(uint8_t colmask, uint8_t rowmask);
 };

@@ -41,13 +41,26 @@ std::vector<MenuItem> MenuBaseClass::getItems() const
     return items;
 };
 
+size_t MenuBaseClass::getCurrentSelectedIndex(void)
+{
+    return selectedItemIndex;
+}
+
+size_t MenuBaseClass::getPreviousSelectedIndex(void)
+{
+    return prevSelectedItemIndex;
+}
+
 void MenuBaseClass::navigateBegin()
 {
-    selectedItemIndex = 0;
+    prevSelectedItemIndex = selectedItemIndex;
+    selectedItemIndex     = 0;
+    firstVisibleItem      = 0;
 }
 
 void MenuBaseClass::navigateUp()
 {
+    prevSelectedItemIndex = selectedItemIndex;
     if (selectedItemIndex > 0) {
         selectedItemIndex--;
     } else {
@@ -58,6 +71,7 @@ void MenuBaseClass::navigateUp()
 
 void MenuBaseClass::navigateDown()
 {
+    prevSelectedItemIndex = selectedItemIndex;
     if (selectedItemIndex < items.size() - 1) {
         selectedItemIndex++;
     } else {
@@ -108,4 +122,9 @@ void MenuBaseClass::activateItem(uint16_t id)
         default:
             break;
     }
+}
+
+int MenuBaseClass::rowHeight() const
+{
+    return Theme::ROW_H;
 }

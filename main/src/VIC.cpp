@@ -24,7 +24,15 @@
 
 static const uint16_t* tftColorFromC64ColorArr;
 
-static bool collArr[4] = {false, true, true, true};
+// Which multicolour bit pairs count as foreground, for sprite priority and for
+// sprite-to-background collision. In the multicolour modes 00 and 01 both
+// belong to the background; only 10 and 11 are foreground. Frodo builds the
+// same mask by keeping the high bit of each pair and spreading it across the
+// two pixels: "(data & 0xaa) | (data & 0xaa) >> 1" (src/VIC.cpp, el_mc_text
+// and el_mc_bitmap). Calling 01 foreground hides sprites behind what should be
+// background, and only in multicolour areas -- hires tests the bit itself and
+// was never wrong.
+static bool collArr[4] = {false, false, true, true};
 
 VIC::VIC()
 {
@@ -69,35 +77,17 @@ void VIC::drawblankline(uint8_t line)
     }
 }
 
-void VIC::shiftDy(uint8_t line, int8_t dy, uint16_t bgcol)
+// RSEL=0 closes the display window four lines at each end. YSCROLL used to be
+// applied here as well, as a translation of the whole finished picture, which
+// is what made FLD slide the screen instead of stretching it; it now reaches
+// the renderer through RC and VC instead and nothing is shifted.
+void VIC::shiftDy(uint8_t line)
 {
-    uint16_t idx        = line * 320;
-    bool     only24rows = !(vicreg[0x11] & 8);
+    bool only24rows = !(vicreg[0x11] & 8);
     if (only24rows) {
         if ((line <= 3) || (line >= 196)) {
             drawblankline(line);
-            return;
         }
-    }
-    if ((line < dy) || (dy <= line - 200)) {
-        uint16_t framecol   = tftColorFromC64ColorArr[vicreg[0x20] & 15];
-        bool     only38cols = !(vicreg[0x16] & 8);
-        if (only38cols) {
-            for (uint8_t xp = 0; xp < 8; xp++) {
-                bitmap[idx++] = framecol;
-            }
-            for (uint16_t xp = 8; xp < 39 * 8; xp++) {
-                bitmap[idx++] = bgcol;
-            }
-            for (uint8_t xp = 0; xp < 8; xp++) {
-                bitmap[idx++] = framecol;
-            }
-        } else {
-            for (uint16_t xp = 0; xp < 40 * 8; xp++) {
-                bitmap[idx++] = bgcol;
-            }
-        }
-        return;
     }
 }
 
@@ -129,10 +119,11 @@ void VIC::drawStdCharModeInt(uint8_t* screenMap, uint16_t bgcol, uint8_t row, ui
     drawByteStdData(chardata, idx, xp, col, bgcol, dx);
 }
 
-void VIC::drawStdCharMode(uint8_t* screenMap, uint8_t bgColor, uint8_t line, int8_t dy, uint8_t dx)
+void VIC::drawStdCharMode(uint8_t* screenMap, uint8_t bgColor, uint8_t line, uint8_t dx, uint16_t vcline,
+                          uint8_t rcline)
 {
     uint16_t bgcol = tftColorFromC64ColorArr[bgColor & 15];
-    shiftDy(line, dy, bgcol);
+    shiftDy(line);
     uint16_t lowval     = 0;
     uint16_t highval    = 200 * 320;
     bool     only24rows = !(vicreg[0x11] & 8);
@@ -140,13 +131,12 @@ void VIC::drawStdCharMode(uint8_t* screenMap, uint8_t bgColor, uint8_t line, int
         lowval  = 4 * 320;
         highval = 196 * 320;
     }
-    int32_t idx2 = (line + dy) * 320;
+    int32_t idx2 = line * 320;
     if ((idx2 >= lowval) && (idx2 < highval)) {
         uint16_t idx = (uint16_t)idx2;
         shiftDx(dx, bgcol, idx);
-        uint8_t  y      = line >> 3;
-        uint8_t  row    = line & 7;
-        uint16_t idxmap = y * 40;
+        uint8_t  row    = rcline;
+        uint16_t idxmap = vcline;
         uint16_t xp     = 0;
         drawStdCharModeInt(screenMap, bgcol, row, 0, xp, idxmap++, idx);
         drawOnly38ColsFrame(idx - 8 - dx);
@@ -173,11 +163,11 @@ void VIC::drawMCCharModeInt(uint8_t* screenMap, uint16_t bgcol, uint16_t* tftCol
     }
 }
 
-void VIC::drawMCCharMode(uint8_t* screenMap, uint8_t bgColor, uint8_t color1, uint8_t color2, uint8_t line, int8_t dy,
-                         uint8_t dx)
+void VIC::drawMCCharMode(uint8_t* screenMap, uint8_t bgColor, uint8_t color1, uint8_t color2, uint8_t line,
+                         uint8_t dx, uint16_t vcline, uint8_t rcline)
 {
     uint16_t bgcol = tftColorFromC64ColorArr[bgColor & 15];
-    shiftDy(line, dy, bgcol);
+    shiftDy(line);
     uint16_t lowval     = 0;
     uint16_t highval    = 200 * 320;
     bool     only24rows = !(vicreg[0x11] & 8);
@@ -185,7 +175,7 @@ void VIC::drawMCCharMode(uint8_t* screenMap, uint8_t bgColor, uint8_t color1, ui
         lowval  = 4 * 320;
         highval = 196 * 320;
     }
-    int32_t idx2 = (line + dy) * 320;
+    int32_t idx2 = line * 320;
     if ((idx2 >= lowval) && (idx2 < highval)) {
         uint16_t idx = (uint16_t)idx2;
         shiftDx(dx, bgcol, idx);
@@ -193,9 +183,8 @@ void VIC::drawMCCharMode(uint8_t* screenMap, uint8_t bgColor, uint8_t color1, ui
         tftColArr[0]    = bgcol;
         tftColArr[1]    = tftColorFromC64ColorArr[color1 & 15];
         tftColArr[2]    = tftColorFromC64ColorArr[color2 & 15];
-        uint8_t  y      = line >> 3;
-        uint8_t  row    = line & 7;
-        uint16_t idxmap = y * 40;
+        uint8_t  row    = rcline;
+        uint16_t idxmap = vcline;
         uint16_t xp     = 0;
         drawMCCharModeInt(screenMap, bgcol, tftColArr, row, 0, xp, idxmap++, idx);
         drawOnly38ColsFrame(idx - 8 - dx);
@@ -219,10 +208,11 @@ void VIC::drawExtBGColCharModeInt(uint8_t* screenMap, uint8_t* bgColArr, uint8_t
     drawByteStdData(chardata, idx, xp, col, bgcol, dx);
 }
 
-void VIC::drawExtBGColCharMode(uint8_t* screenMap, uint8_t* bgColArr, uint8_t line, int8_t dy, uint8_t dx)
+void VIC::drawExtBGColCharMode(uint8_t* screenMap, uint8_t* bgColArr, uint8_t line, uint8_t dx, uint16_t vcline,
+                               uint8_t rcline)
 {
     uint8_t bgcol0 = tftColorFromC64ColorArr[bgColArr[0]];
-    shiftDy(line, dy, bgcol0);
+    shiftDy(line);
     uint16_t lowval     = 0;
     uint16_t highval    = 200 * 320;
     bool     only24rows = !(vicreg[0x11] & 8);
@@ -230,13 +220,12 @@ void VIC::drawExtBGColCharMode(uint8_t* screenMap, uint8_t* bgColArr, uint8_t li
         lowval  = 4 * 320;
         highval = 196 * 320;
     }
-    int32_t idx2 = (line + dy) * 320;
+    int32_t idx2 = line * 320;
     if ((idx2 >= lowval) && (idx2 < highval)) {
         uint16_t idx = (uint16_t)idx2;
         shiftDx(dx, bgcol0, idx);
-        uint8_t  y      = line >> 3;
-        uint8_t  row    = line & 7;
-        uint16_t idxmap = y * 40;
+        uint8_t  row    = rcline;
+        uint16_t idxmap = vcline;
         uint16_t xp     = 0;
         drawExtBGColCharModeInt(screenMap, bgColArr, row, 0, xp, idxmap++, idx);
         drawOnly38ColsFrame(idx - 8 - dx);
@@ -261,11 +250,11 @@ void VIC::drawMCBitmapModeInt(uint8_t* multicolorBitmap, uint8_t* colorMap1, uin
 }
 
 void VIC::drawMCBitmapMode(uint8_t* multicolorBitmap, uint8_t* colorMap1, uint8_t backgroundColor, uint8_t line,
-                           int8_t dy, uint8_t dx)
+                           uint8_t dx, uint16_t vcline, uint8_t rcline)
 {
     uint16_t tftColArr[4];
     tftColArr[0] = tftColorFromC64ColorArr[backgroundColor & 0x0f];
-    shiftDy(line, dy, tftColArr[0]);
+    shiftDy(line);
     uint16_t lowval     = 0;
     uint16_t highval    = 200 * 320;
     bool     only24rows = !(vicreg[0x11] & 8);
@@ -273,14 +262,13 @@ void VIC::drawMCBitmapMode(uint8_t* multicolorBitmap, uint8_t* colorMap1, uint8_
         lowval  = 4 * 320;
         highval = 196 * 320;
     }
-    int32_t idx2 = (line + dy) * 320;
+    int32_t idx2 = line * 320;
     if ((idx2 >= lowval) && (idx2 < highval)) {
         uint16_t idx = (uint16_t)idx2;
         shiftDx(dx, tftColArr[0], idx);
-        uint8_t  y     = line >> 3;
-        uint8_t  row   = line & 7;
-        uint16_t cidx  = y * 40;
-        uint16_t mcidx = (y * 40) << 3;
+        uint8_t  row   = rcline;
+        uint16_t cidx  = vcline;
+        uint16_t mcidx = vcline << 3;
         uint16_t xp    = 0;
         drawMCBitmapModeInt(multicolorBitmap, colorMap1, tftColArr, cidx++, mcidx, row, 0, xp, idx);
         mcidx += 8;
@@ -306,10 +294,11 @@ void VIC::drawStdBitmapModeInt(uint8_t* hiresBitmap, uint8_t* colorMap, uint16_t
     drawByteStdData(data, idx, xp, col, bgcol, dx);
 }
 
-void VIC::drawStdBitmapMode(uint8_t* hiresBitmap, uint8_t* colorMap, uint8_t line, int8_t dy, uint8_t dx)
+void VIC::drawStdBitmapMode(uint8_t* hiresBitmap, uint8_t* colorMap, uint8_t line, uint8_t dx, uint16_t vcline,
+                            uint8_t rcline)
 {
     // TODO: background color is specific for each "tile"
-    shiftDy(line, dy, 0);
+    shiftDy(line);
     uint16_t lowval     = 0;
     uint16_t highval    = 200 * 320;
     bool     only24rows = !(vicreg[0x11] & 8);
@@ -317,14 +306,13 @@ void VIC::drawStdBitmapMode(uint8_t* hiresBitmap, uint8_t* colorMap, uint8_t lin
         lowval  = 4 * 320;
         highval = 196 * 320;
     }
-    int32_t idx2 = (line + dy) * 320;
+    int32_t idx2 = line * 320;
     if ((idx2 >= lowval) && (idx2 < highval)) {
         uint16_t idx = (uint16_t)idx2;
         shiftDx(dx, 0, idx);
-        uint8_t  y      = line >> 3;
-        uint8_t  row    = line & 7;
-        uint16_t colidx = y * 40;
-        uint16_t hiidx  = (y * 40) << 3;
+        uint8_t  row    = rcline;
+        uint16_t colidx = vcline;
+        uint16_t hiidx  = vcline << 3;
         uint16_t xp     = 0;
         drawStdBitmapModeInt(hiresBitmap, colorMap, hiidx, colidx, row, 0, xp, idx);
         hiidx += 8;
@@ -336,6 +324,76 @@ void VIC::drawStdBitmapMode(uint8_t* hiresBitmap, uint8_t* colorMap, uint8_t lin
         drawStdBitmapModeInt(hiresBitmap, colorMap, hiidx, colidx, row, dx, xp, idx);
         drawOnly38ColsFrame(idx - 8);
     }
+}
+
+void VIC::drawBlackLine(uint8_t line)
+{
+    uint16_t idx      = static_cast<uint16_t>(line) * 320;
+    uint16_t blackcol = tftColorFromC64ColorArr[0];
+    for (uint16_t i = 0; i < 320; i++) {
+        bitmap[idx++] = blackcol;
+    }
+}
+
+// The idle state. When the row counter has run out and no bad line has come
+// along to restart the display, the VIC keeps on fetching, but always from the
+// same place: $3fff of the current bank, or $39ff when ECM is set. There is no
+// screen matrix and no colour RAM behind it, so the same byte is drawn in all
+// forty columns, in black on the background colour. Frodo does exactly this in
+// el_std_idle and el_mc_idle (src/VIC.cpp); its idle switch sends standard
+// bitmap mode and the invalid modes to a black line instead, and so does this.
+//
+// This is what an FLD demo is really asking for. Freezing RC and VCBASE
+// stretches the last row that was fetched down the screen and then, once the
+// row counter has wrapped, leaves the idle picture behind it.
+void VIC::drawIdleMode(uint8_t bgColor, uint8_t line, uint8_t dx, bool ecm, bool bmm, bool mcm)
+{
+    bool stdidle = (!bmm) && !(ecm && mcm);
+    bool mcidle  = bmm && mcm && (!ecm);
+    if ((!stdidle) && (!mcidle)) {
+        drawBlackLine(line);
+        return;
+    }
+    uint16_t bgcol = tftColorFromC64ColorArr[bgColor & 15];
+    shiftDy(line);
+    uint16_t lowval     = 0;
+    uint16_t highval    = 200 * 320;
+    bool     only24rows = !(vicreg[0x11] & 8);
+    if (only24rows) {
+        lowval  = 4 * 320;
+        highval = 196 * 320;
+    }
+    int32_t idx2 = line * 320;
+    if ((idx2 < lowval) || (idx2 >= highval)) {
+        return;
+    }
+    uint16_t idx = (uint16_t)idx2;
+    shiftDx(dx, bgcol, idx);
+    uint16_t xp = 0;
+    if (stdidle) {
+        uint8_t  data = ram[vicmem + (ecm ? 0x39ff : 0x3fff)];
+        uint16_t col  = tftColorFromC64ColorArr[0];
+        drawByteStdData(data, idx, xp, col, bgcol, 0);
+        drawOnly38ColsFrame(idx - 8 - dx);
+        for (uint8_t x = 1; x < 39; x++) {
+            drawByteStdData(data, idx, xp, col, bgcol, 0);
+        }
+        drawByteStdData(data, idx, xp, col, bgcol, dx);
+    } else {
+        uint8_t  data = ram[vicmem + 0x3fff];
+        uint16_t tftColArr[4];
+        tftColArr[0] = bgcol;
+        tftColArr[1] = tftColorFromC64ColorArr[0];
+        tftColArr[2] = tftColArr[1];
+        tftColArr[3] = tftColArr[1];
+        drawByteMCData(data, idx, xp, tftColArr, collArr, 0);
+        drawOnly38ColsFrame(idx - 8 - dx);
+        for (uint8_t x = 1; x < 39; x++) {
+            drawByteMCData(data, idx, xp, tftColArr, collArr, 0);
+        }
+        drawByteMCData(data, idx, xp, tftColArr, collArr, dx);
+    }
+    drawOnly38ColsFrame(idx - 8);
 }
 
 void VIC::drawSpriteDataSC(uint8_t bitnr, int16_t xpos, uint8_t ypos, uint8_t* data, uint8_t color)
@@ -527,13 +585,14 @@ uint8_t VIC::spriteDmaCycles()
 
     uint8_t spritesdoubley = vicreg[0x17];
     uint8_t spritesenabled = vicreg[0x15];
-    uint8_t deltay = vicreg[0x11] & 7;
     bool    den    = vicreg[0x11] & 16;  // Display enable
     uint8_t bitval         = 128;
     uint8_t steal_cycles   = 0;
 
+    // Sprites are positioned against the raster line itself. YSCROLL scrolls the
+    // character display and nothing else, so it must not enter this comparison.
     // Only 8 bit for line comparison, so sprites repeat if placed in extremes of the screen
-    uint8_t line = rasterline + deltay - 3;
+    uint8_t line = rasterline;
 
     // No sprite DMA when display is disabled
     if (!den) {
@@ -646,14 +705,18 @@ void VIC::initVarsAndRegs()
     vicreg[0x19] = 0x71;
     vicreg[0x1a] = 0xf0;
 
-    cntRefreshs    = 0;
-    syncd020       = 255;
-    vicmem         = 0;
-    bitmapstart    = 0x2000;
-    screenmemstart = 1024;
-    cntRefreshs    = 0;
-    rasterline     = 0;
-    charset        = chrom;
+    cntRefreshs     = 0;
+    vc              = 0;
+    vcbase          = 0;
+    rc              = 0;
+    displaystate    = false;
+    badlinesenabled = false;
+    syncd020        = 255;
+    vicmem          = 0;
+    bitmapstart     = 0x2000;
+    screenmemstart  = 1024;
+    rasterline      = 0;
+    charset         = chrom;
 
     wstart = 0x33;
     wend = 0xfb;
@@ -739,6 +802,49 @@ void IRAM_ATTR VIC::drawRasterline()
 {
     static bool active_area = false;
 
+    // The fetch counters, driven the way Frodo's non-SC VIC drives them
+    // (src/VIC.cpp, MOS6569::EmulateLine). They run one raster line ahead of
+    // `rasterline`: the renderer below treats dline 0 as the first line of the
+    // display window, and with RSEL=1 that window is raster $33..$fa on the
+    // real chip, so the hardware line whose counters this row is drawn with is
+    // rasterline+1.
+    uint16_t hwline = rasterline + 1;
+    if (hwline > 311) {
+        hwline = 0;
+    }
+    // End of the previous hardware line: RC overflowing puts the VIC into the
+    // idle state and hands VC on to VCBASE. Done here, at the top of the next
+    // line, so that an early return out of the drawing below cannot skip it.
+    if ((rasterline >= 0x10) && (rasterline <= 0x11f)) {
+        if (rc == 7) {
+            displaystate = false;
+            vcbase       = vc;
+        } else {
+            rc++;
+        }
+    }
+    if (hwline == 0) {
+        vcbase = 0;
+    }
+    if (hwline == 0x30) {
+        // DEN is sampled once, in line $30, and that alone decides whether bad
+        // lines can happen for the rest of the frame.
+        badlinesenabled = vicreg[0x11] & 0x10;
+    }
+    if ((hwline >= 0x10) && (hwline <= 0x11f)) {
+        vc = vcbase;
+        // The bad line range is $30..$f7, from Frodo's FIRST_DMA_LINE and
+        // LAST_DMA_LINE. nextRasterline() below still tests $33..$fb for the
+        // 40 cycles it takes off the CPU; that test is a raster line out and
+        // four lines too low at the bottom, but correcting it moves every
+        // demo's timing, so it is left alone here and wants a change of its
+        // own.
+        if ((hwline >= 0x30) && (hwline <= 0xf7) && ((hwline & 7) == (vicreg[0x11] & 7)) && badlinesenabled) {
+            displaystate = true;
+            rc           = 0;
+        }
+    }
+
     // uint16_t line = rasterline;
     if ((rasterline >= 0x32) && (rasterline <= 0xf9)) {
         if (rasterline == wstart) {
@@ -753,8 +859,7 @@ void IRAM_ATTR VIC::drawRasterline()
             drawblankline(dline);
             return;
         }
-        uint8_t d011   = vicreg[0x11];
-        uint8_t deltay = d011 & 7;
+        uint8_t d011 = vicreg[0x11];
         memset(spritedatacoll, false, sizeof(spritedatacoll));
         uint8_t d016   = vicreg[0x16];
         uint8_t deltax = d016 & 7;
@@ -766,24 +871,42 @@ void IRAM_ATTR VIC::drawRasterline()
             drawblankline(dline);
             return;
         }
-        if (bmm) {
+        if (!displaystate) {
+            // The VIC has fallen out of the display state and is fetching from
+            // $3fff instead of the screen matrix. Drawing the idle picture is
+            // what stretches an FLD screen; before, the line was simply left
+            // alone or blanked.
+            drawIdleMode(vicreg[0x21], dline, deltax, ecm, bmm, mcm);
+        } else if (bmm) {
             if (mcm) {
-                drawMCBitmapMode(ram + bitmapstart, ram + screenmemstart, vicreg[0x21], dline, deltay - 3, deltax);
+                drawMCBitmapMode(ram + bitmapstart, ram + screenmemstart, vicreg[0x21], dline, deltax, vc, rc);
             } else {
-                drawStdBitmapMode(ram + bitmapstart, ram + screenmemstart, dline, deltay - 3, deltax);
+                drawStdBitmapMode(ram + bitmapstart, ram + screenmemstart, dline, deltax, vc, rc);
             }
         } else {
             if ((!ecm) && (!mcm)) {
-                drawStdCharMode(ram + screenmemstart, vicreg[0x21], dline, deltay - 3, deltax);
+                drawStdCharMode(ram + screenmemstart, vicreg[0x21], dline, deltax, vc, rc);
             } else if ((!ecm) && mcm) {
-                drawMCCharMode(ram + screenmemstart, vicreg[0x21], vicreg[0x22], vicreg[0x23], dline, deltay - 3,
-                               deltax);
+                drawMCCharMode(ram + screenmemstart, vicreg[0x21], vicreg[0x22], vicreg[0x23], dline, deltax, vc, rc);
             } else if (ecm && (!mcm)) {
                 uint8_t bgColArr[] = {vicreg[0x21], vicreg[0x22], vicreg[0x23], vicreg[0x24]};
-                drawExtBGColCharMode(ram + screenmemstart, bgColArr, dline, deltay - 3, deltax);
+                drawExtBGColCharMode(ram + screenmemstart, bgColArr, dline, deltax, vc, rc);
+            } else {
+                // ECM and MCM together is one of the VIC's invalid modes: the
+                // chip outputs black. Drawing nothing left whatever the last
+                // frame put in this row of the buffer.
+                drawBlackLine(dline);
             }
         }
-        drawSprites(rasterline + deltay - 3);
+        // Only a line the VIC really fetched moves the video counter on. In
+        // the idle state VC stands still, which is what makes the last row
+        // repeat rather than the picture scroll. VC is ten bits wide on the
+        // chip, and the mask also keeps colormap[] in bounds when a demo
+        // arranges for more than 25 rows of fetches.
+        if (displaystate) {
+            vc = (vc + 40) & 0x3ff;
+        }
+        drawSprites(rasterline);
     }
 
     if ((rasterline >= 16) && (rasterline <= 276)) {

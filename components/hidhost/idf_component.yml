@@ -1,0 +1,7 @@
+version: "1.0.0"
+description: "USB HID Boot Keyboard → BSP input injector and USB HID gamepad → C64 joystick for ESP32-P4"
+dependencies:
+  idf: ">=5.3"
+  badgeteam/hid-host: "^0.3.1"
+  usb_host_hid: "^1.0.1"
+  espressif/usb_host_msc: "^1.1.1"

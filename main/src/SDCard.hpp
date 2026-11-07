@@ -22,14 +22,11 @@
 #include <vector>
 #include "driver/sdmmc_default_configs.h"
 #include "driver/sdmmc_host.h"
+#include "images/CbmImage.hpp"
 
 class SDCard {
    private:
-    bool                initialized;
-    sdmmc_slot_config_t slot_config = SDMMC_SLOT_CONFIG_DEFAULT();
-    sdmmc_host_t        host        = SDMMC_HOST_DEFAULT();
-    sdmmc_card_t        card;
-    sdmmc_card_t*       mount_card;
+    bool initialized;
 
    public:
     SDCard();
@@ -40,6 +37,18 @@ class SDCard {
     uint16_t                 load(const char* path, uint8_t* ram, size_t len = 0);
     uint16_t                 load_auto(const char* path, uint8_t* ram, size_t len = 0);
     bool                     save(const char* path, const uint8_t* ram, size_t len = 0);
-    std::vector<std::string> listPagedEntries(const char* path, size_t page, size_t pageSize);
+    // Lists the loadable files in `path` one page at a time. Names keep their
+    // extension so the caller can tell a program from a container.
+    // Lists the loadable files in `path`, sorted, with their extensions kept
+    // so the caller can tell a program from a container. Static so it serves
+    // a USB disk as well as the card. A directory holding more than
+    // MAX_LISTED_FILES of them is truncated, with a warning.
+    static const size_t             MAX_LISTED_FILES = 512;
+    static std::vector<std::string> listLoadableFiles(const char* path);
     bool                     listNextEntry(uint8_t* nextEntry, size_t entrySize, bool start);
+    // Builds the full path of a file in the program directory.
+    static std::string       fullPath(const char* filename);
+    // Reads a .prg at `full_path` into `ram`, wherever that path happens to
+    // live. Returns the address one past the last byte written, or 0.
+    static uint16_t          readPrg(const char* full_path, uint8_t* ram);
 };

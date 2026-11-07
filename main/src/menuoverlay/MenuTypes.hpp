@@ -39,4 +39,8 @@ struct MenuItem {
     std::string                    value_name = "";
     bool                           disabled = false;
     void*                          content = nullptr;
+    // A CBM name, in the raw PETSCII it had on the disk. When this is set the
+    // row is drawn with the C64 charset and `title` holds only what follows
+    // the name, since a proportional ASCII font has no PETSCII graphics in it.
+    std::string                    petscii = "";
 };

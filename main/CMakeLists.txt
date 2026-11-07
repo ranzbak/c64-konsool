@@ -10,20 +10,38 @@ idf_component_register(
 		"src/KonsoolKB.cpp"
 		"src/GfxP4.cpp"
 		"src/SDCard.cpp"
+		"src/images/CbmImage.cpp"
+		"src/images/T64Image.cpp"
+		"src/images/D64Image.cpp"
+		"src/drive/CbmDos.cpp"
+		"src/drive/D64Disk.cpp"
+		"src/drive/IecBus.cpp"
+		"src/drive/Gcr.cpp"
+		"src/drive/Via6522.cpp"
+		"src/drive/DiskController.cpp"
+		"src/drive/Drive1541.cpp"
 		"src/VIC.cpp"
 		"src/menuoverlay/MenuController.cpp"
 		"src/menuoverlay/MenuBaseClass.cpp"
 		"src/menuoverlay/mainMenu.cpp"
 		"src/menuoverlay/LoadMenu.cpp"
+		"src/menuoverlay/UsbLoadMenu.cpp"
+		"src/menuoverlay/ImageMenu.cpp"
 		"src/menuoverlay/MenuDataStore.cpp"
+		"src/menuoverlay/PetsciiText.cpp"
 		"src/sid/sid.cpp"
 		"src/sid/i2s.cpp"
+		"sdcard.c"
+		"global_event_handler.c"
+		"icons.c"
 	PRIV_REQUIRES
+		esp_app_format
 		esp_lcd
 		esp_adc
 		esp_driver_ppa
 		fatfs
 		nvs_flash
+		hidhost
 		badge-bsp
 	INCLUDE_DIRS
 		"."

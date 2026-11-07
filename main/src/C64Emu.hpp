@@ -16,7 +16,6 @@
  http://www.gnu.org/licenses/.
 */
 
-// #include "BLEKB.h"
 #include "KonsoolKB.hpp"
 // #include "esp_attr.h"
 // #include "freertos/projdefs.h"
@@ -101,7 +100,6 @@ class C64Emu {
 
    public:
     CPUC64         cpu;
-    // BLEKB blekb;
     KonsoolKB      konsoolkb;
     MenuController menuController;
     ExternalCmds   externalCmds;

@@ -20,7 +20,10 @@
 class C64Emu;
 
 #include <cstdint>
+#include <string>
 #include "SDCard.hpp"
+#include "drive/CbmDos.hpp"
+#include "drive/D64Disk.hpp"
 
 // notifications may be not larger than 20 bytes
 
@@ -80,8 +83,19 @@ class ExternalCmds {
     uint16_t actaddrreceivecmd;
 
     bool initialized = false;
+    bool mounted     = false;
+    bool trueDrive   = false;
+    std::string mountedName;
+
+    // The 1541 DOS ROM, read off the card. Kept here so it outlives the CPU
+    // that points at it.
+    uint8_t* driveRom = nullptr;
+    bool loadDriveRom();
 
     void setVarTab(uint16_t addr);
+    // Hands control back to the C64 after a load attempt, printing READY or an
+    // error through the injected loadactions routine.
+    void finishLoad(bool fileloaded, bool error);
     void setType1Notification();
     void setType2Notification();
     void setType3Notification(uint16_t addr);
@@ -90,6 +104,10 @@ class ExternalCmds {
 
    public:
     SDCard   sdcard;
+
+    // Drive 8, backed by a mounted .d64.
+    D64Disk  disk;
+    CbmDos   dos;
     // TODO: Doesn't work need to look at later
     enum class ExtCmd;
 
@@ -102,7 +120,48 @@ class ExternalCmds {
     BLENotificationStruct5 type5notification;
 
     void    init(uint8_t* ram, C64Emu* c64emu);
+    // Loads a bare .prg. `filename` carries no extension.
     bool    loadPrg(const char* filename);
+    bool    loadPrgFromPath(const char* fullpath);
+    // Loads any supported file from the program directory. `filename` includes
+    // its extension; a .t64 or .d64 loads the first program it holds.
+    bool    loadFile(const char* filename);
+    // Loads one program out of a .t64 or .d64 by its index in entries().
+    bool    loadImageEntry(const char* filename, uint16_t index);
+
+    // The same three, addressed by full path rather than by a name in the
+    // program directory, so a USB disk can be read as well as the card.
+    bool    loadFileFromPath(const char* fullpath);
+    bool    loadImageEntryFromPath(const char* fullpath, uint16_t index);
+    bool    mountDiskFromPath(const char* fullpath);
+
+    // Puts a different disk in the running drive without resetting anything.
+    // The C64 keeps going and so does the drive, which matters because a
+    // loader that has uploaded its own code into the drive would not survive a
+    // reset. The change is announced on the write protect line, the way a real
+    // drive announces it. Only useful with 1541 emulation on; with the kernal
+    // traps it just swaps the image.
+    bool    swapDisk(const char* fullpath);
+
+    // Attaches a .d64 as drive 8 so the C64 can LOAD from it itself, rather
+    // than having a program injected into memory. Returns false if the image
+    // cannot be read or the Kernal traps could not be installed.
+    bool    mountDisk(const char* filename);
+
+    // Switches drive 8 between the Kernal traps and a real emulated 1541.
+    // The 1541 needs its DOS ROM on the card; without it this returns false
+    // and the traps stay in charge.
+    bool    setTrueDriveEmulation(bool enabled);
+    bool    trueDriveEmulation() const {
+        return trueDrive;
+    }
+    void    unmountDisk();
+    bool    diskMounted() const {
+        return mounted;
+    }
+    const std::string& mountedDiskName() const {
+        return mountedName;
+    }
     void    reset();
     uint8_t executeExternalCmd(uint8_t* buffer);
 };

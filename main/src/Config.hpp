@@ -27,13 +27,15 @@
 
 #define BOARD_KONSOOL
 
-
 struct Config {
 
 #if defined(BOARD_KONSOOL)
 #define USE_SDCARD
-#define SD_CARD_MOUNT_POINT "/sdcard"
-#define SD_CARD_PRG_PATH SD_CARD_MOUNT_POINT "/c64prg"
+#define SD_CARD_MOUNT_POINT "/sd"
+#define SD_CARD_PRG_PATH    SD_CARD_MOUNT_POINT "/c64prg"
+// The 1541 DOS ROM is copyrighted and not shipped; drop it here to use the
+// real drive rather than the kernal traps.
+#define DRIVE_ROM_FILENAME  "1541.rom"
 #define USE_JOYSTICK
 #define USE_GFXP4
 #define NEW_COMBINED_WAVEFORMS

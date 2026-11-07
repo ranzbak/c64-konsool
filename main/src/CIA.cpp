@@ -254,10 +254,25 @@ void CIA::setCommonCIAReg(uint8_t ciaIdx, uint8_t val) {
         }
         ciaReg[ciaIdx] = val;
     } else if (ciaIdx == 0x0d) {
+        // Writing this register sets or clears the mask, not the pending
+        // bits: only a read clears those.
         if (val & 0x80) {
             ciaReg[ciaIdx] |= val;
         } else {
             ciaReg[ciaIdx] &= ~(val | 0x80);
+        }
+        // The interrupt line follows whether an enabled source is pending, and
+        // is worked out again whenever either side of that changes. Masking a
+        // source takes the interrupt away at once, and enabling one that is
+        // already pending raises it at once. Leaving the flag latched until
+        // somebody reads the register means a program that switches interrupts
+        // off by writing $7f, as a loader does, keeps being interrupted for
+        // ever: hundreds of thousands of them instead of a couple of hundred,
+        // and everything it was trying to do crawls.
+        if ((latchDC0D & ciaReg[0x0d] & 0x1f) != 0) {
+            latchDC0D |= 0x80;
+        } else {
+            latchDC0D &= 0x7f;
         }
     } else if (ciaIdx == 0x0e) {
         ciaReg[ciaIdx] = val;

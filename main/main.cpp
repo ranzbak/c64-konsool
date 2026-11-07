@@ -57,6 +57,7 @@ extern "C" {
 #endif
 #include "driver/gpio.h"
 #include "esp_log.h"
+#include "esp_timer.h"
 // #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
 #include "freertos/task.h"
@@ -191,6 +192,17 @@ extern "C" void wait_for_esc(void) {
     while (!(bsp_input_read_navigation_key(BSP_INPUT_NAVIGATION_KEY_ESC, &pressed) == ESP_OK && pressed)) {
         vTaskDelay(pdMS_TO_TICKS(50));
     }
+}
+
+// One PAL frame: 312 lines of 63 cycles at 985248 Hz, 50.12 Hz.
+#define PAL_FRAME_US 19950
+
+static volatile uint32_t frameTicks = 0;
+
+static void on_frame_timer(void* arg)
+{
+    frameTicks = frameTicks + 1;
+    xSemaphoreGive(static_cast<SemaphoreHandle_t>(arg));
 }
 
 extern "C" void app_main(void)
@@ -358,26 +370,36 @@ extern "C" void app_main(void)
 
     global_event_handler_initialize();
 
-    float to50hz = 0;
-
     // Get 50Hz frame rate semaphore
     frameRateMutex = c64Emu.cpu.getFrameRateMutex();
 
     hid_kbd_init();
     ESP_ERROR_CHECK(usb_msc_init(on_usb_mount, NULL));
 
+    // The C64 runs on its own clock. Pacing it off the display's tearing signal
+    // ties it to whatever rate that signal has: at 30 Hz it ran at half speed.
+    const esp_timer_create_args_t frame_timer_args = {
+        .callback              = on_frame_timer,
+        .arg                   = frameRateMutex,
+        .dispatch_method       = ESP_TIMER_TASK,
+        .name                  = "c64frame",
+        .skip_unhandled_events = true,
+    };
+    esp_timer_handle_t frame_timer = NULL;
+    ESP_ERROR_CHECK(esp_timer_create(&frame_timer_args, &frame_timer));
+    ESP_ERROR_CHECK(esp_timer_start_periodic(frame_timer, PAL_FRAME_US));
+    uint32_t drawnFrame = 0;
+
     // Main loop outputs C64 screen contents to the display
     while (true) {
         // Wait for display refresh signal
         xSemaphoreTake(semaphore, 100 / portTICK_PERIOD_MS);
         handle_hid_events();
-        // We only want 50Hz output, so we'll skip some frames
-        if (to50hz > 1.0) {
+        // Draw at the display's pace, but only when the C64 has moved on. How
+        // fast the emulation runs is the frame timer's business, not this loop's.
+        if (drawnFrame != frameTicks) {
+            drawnFrame = frameTicks;
             c64Emu.loop();
-            xSemaphoreGive(frameRateMutex);
-            to50hz -= 1.0;
         }
-        // Make sure we always have 50Hz output
-        to50hz += PAL_TO_NTSC_RATIO;
     }
 }

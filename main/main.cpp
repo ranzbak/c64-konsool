@@ -112,7 +112,7 @@ static unsigned char* load_rom_from_path(const char* path, size_t expected)
     size_t size = (size_t)st.st_size;
 
     // The emulation indexes these by address, so a short file is not a smaller
-    // ROM: it reads past the end of the buffer. A 1541 ROM of 8K, its top half
+    // ROM: it reads past the end of the buffer. A 1541 ROM of 8K, its lower half
     // only, boots the drive from garbage and every disk then hangs.
     if (size != expected) {
         ESP_LOGE(TAG, "ignoring ROM file %s: %u bytes, expected %u", path, (unsigned)size, (unsigned)expected);

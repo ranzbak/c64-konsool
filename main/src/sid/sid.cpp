@@ -249,7 +249,9 @@ int IRAM_ATTR SID::cycle(unsigned char num,
         // WAVE-generation code (phase accumulator and waveform-selector):
         test    = ctrl & TEST_BITMASK;
         wf      = ctrl & 0xF0;
-        accuadd = (vReg[0] + vReg[1] * 256) * (uint32_t)CLOCK_RATIO;
+        // CLOCK_RATIO is 44.68 and has to stay that: truncating it to 44 first puts
+        // every note 26 cents flat.
+        accuadd = (uint32_t)((vReg[0] + vReg[1] * 256) * CLOCK_RATIO);
         if (test || ((ctrl & SYNC_BITMASK) && sourceMSBrise[num]))
             phaseaccu[channel] = 0;
         else {

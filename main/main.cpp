@@ -94,7 +94,7 @@ static void on_usb_mount(bool mounted, void* arg)
 // buffer sized to match, via fstat rather than a size the caller has to know
 // in advance. Returns NULL (and logs why) rather than a short buffer, so
 // callers can tell a missing/short file from a real ROM.
-static unsigned char* load_rom_from_path(const char* path)
+static unsigned char* load_rom_from_path(const char* path, size_t expected)
 {
     int fd = open(path, O_RDONLY);
     if (fd < 0) {
@@ -109,6 +109,15 @@ static unsigned char* load_rom_from_path(const char* path)
         return NULL;
     }
     size_t size = (size_t)st.st_size;
+
+    // The emulation indexes these by address, so a short file is not a smaller
+    // ROM: it reads past the end of the buffer. A 1541 ROM of 8K, its top half
+    // only, boots the drive from garbage and every disk then hangs.
+    if (size != expected) {
+        ESP_LOGE(TAG, "ignoring ROM file %s: %u bytes, expected %u", path, (unsigned)size, (unsigned)expected);
+        close(fd);
+        return NULL;
+    }
 
     unsigned char* buffer = (unsigned char*)malloc(size);
     if (buffer == NULL) {
@@ -141,10 +150,10 @@ static unsigned char* load_rom_from_path(const char* path)
 
 // Tries each candidate path in order, returning the first one that loads.
 // `paths` is NULL-terminated.
-static unsigned char* load_rom(const char* const* paths)
+static unsigned char* load_rom(const char* const* paths, size_t expected)
 {
     for (const char* const* p = paths; *p != NULL; ++p) {
-        unsigned char* buffer = load_rom_from_path(*p);
+        unsigned char* buffer = load_rom_from_path(*p, expected);
         if (buffer != NULL) {
             return buffer;
         }
@@ -311,24 +320,25 @@ extern "C" void app_main(void)
     static const char* const kernalPaths[]  = {"/sd/apps/nl.ranzbak.c64/kernal.bin", "/int/apps/nl.ranzbak.c64/kernal.bin", NULL};
     static const char* const basicPaths[]   = {"/sd/apps/nl.ranzbak.c64/basic.bin", "/int/apps/nl.ranzbak.c64/basic.bin", NULL};
     static const char* const charsetPaths[] = {"/sd/apps/nl.ranzbak.c64/charset.bin", "/int/apps/nl.ranzbak.c64/charset.bin", NULL};
-    static const char* const diskPaths[]    = {"/sd/apps/nl.ranzbak.c64/1541.bin", "/int/apps/nl.ranzbak.c64/1541.bin", NULL};
+    static const char* const diskPaths[]    = {"/sd/c64prg/1541.rom", "/sd/apps/nl.ranzbak.c64/1541.bin", "/int/apps/nl.ranzbak.c64/1541.bin", NULL};
 
     struct RomToLoad {
         const char*        name;
         const char* const* paths;
         unsigned char**    target;
+        size_t             size;
         bool                required;
     };
     const RomToLoad roms[] = {
-        {"Kernal",     kernalPaths,  &kernal_rom,  true },
-        {"Basic",      basicPaths,   &basic_rom,   true },
-        {"Charset",    charsetPaths, &charset_rom, true },
-        {"1541 drive", diskPaths,    &disk_rom,    false},
+        {"Kernal",     kernalPaths,  &kernal_rom,  8192,  true },
+        {"Basic",      basicPaths,   &basic_rom,   8192,  true },
+        {"Charset",    charsetPaths, &charset_rom, 4096,  true },
+        {"1541 drive", diskPaths,    &disk_rom,    16384, false},
     };
 
     bool fatal = false;
     for (const RomToLoad& rom : roms) {
-        *rom.target = load_rom(rom.paths);
+        *rom.target = load_rom(rom.paths, rom.size);
         if (*rom.target == NULL && rom.required) {
             char detail[256];
             snprintf(detail, sizeof(detail), "Failed to load %s ROM!", rom.name);

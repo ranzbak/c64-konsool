@@ -36,6 +36,12 @@ typedef void (*AudioCallback)(int16_t* samples, size_t num_samples);
 #define SAMPLE_BUFFER_SIZE 32
 #define CUTOFF_RATIO_8580  (-2 * 3.14f * (12500.0f / 2048) / DEFAULT_SAMPLERATE)  // 12500.0 / 2048 ~= 6 Hz / inc
 #define CLOCK_RATIO        CLOCK_RATIO_DEFAULT
+// The DC a 6581 voice puts out whatever its envelope is doing, the same size as
+// a voice at full envelope swings either side of it (after reSID's voice_DC).
+// Writing the volume register scales it, which is how $D418 digis make sound.
+#define DIGI_VOICE_DC 32768
+// The C64's output capacitor, a high pass at about 16 Hz: 1 - 2 pi 16 / rate
+#define DC_BLOCK_R (1.0f - 2 * 3.14159265f * 16.0f / DEFAULT_SAMPLERATE)
 // The sawtooth edge steepness per unit of phase increment, 1 / (65536 * 288)
 #define SAW_STEEP_RATIO    (1.0f / 18874368.0f)
 
@@ -76,6 +82,12 @@ class SID {
     float         cutoff_8580[3];
     // 0.4 + 0.6 / freqh, the smoothing used for combined waveforms.
     float         combined_addf[256];
+    // Voice DC per SID: the 6581 always has it, the 8580 only with digi boost.
+    int32_t       digi_dc[3]          = {0, 0, 0};
+    bool          digi_boost          = true;
+    float         dcblock_in[3]       = {0, 0, 0};
+    float         dcblock_out[3]      = {0, 0, 0};
+    void          updateDigiDC();
     float         clock_ratio = CLOCK_RATIO_DEFAULT;
     uint8_t*      memory;
     float         scan_line_sync = 0.0;
@@ -92,6 +104,7 @@ class SID {
     void cSID_init();
     void init(uint8_t* memory, AudioCallback sample_out_callback = nullptr, int sid_model = 8580);
     void setModel(int model);
+    void setDigiBoost(bool enabled);
     void raster_line();
     int  cycle(unsigned char num, uint32_t baseaddr);
 };

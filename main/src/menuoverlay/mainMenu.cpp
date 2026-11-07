@@ -23,6 +23,13 @@ static const int JOYSTICK_PORT_DEFAULT = 2;
 
 static const char* const SID_MODEL_VALUE_NAME = "sid_model";
 
+static const char* const DIGI_BOOST_VALUE_NAME = "digi_boost";
+
+static std::string digiBoostTitle(bool on)
+{
+    return on ? "Digi boost (8580): on" : "Digi boost (8580): off";
+}
+
 static std::string sidModelTitle(int model)
 {
     return model == SIDMODEL_6581 ? "SID chip: 6581 (original)" : "SID chip: 8580 (later)";
@@ -50,6 +57,8 @@ void MainMenu::update()
             item.title = joystickPortTitle(menuDataStore->getInt(JOYSTICK_PORT_VALUE_NAME, JOYSTICK_PORT_DEFAULT));
         } else if (item.value_name == SID_MODEL_VALUE_NAME) {
             item.title = sidModelTitle(menuDataStore->getInt(SID_MODEL_VALUE_NAME, DEFAULT_SIDMODEL));
+        } else if (item.value_name == DIGI_BOOST_VALUE_NAME) {
+            item.title = digiBoostTitle(menuDataStore->getBool(DIGI_BOOST_VALUE_NAME, true));
         }
     }
 }
@@ -183,6 +192,23 @@ bool MainMenu::init()
         c64emu->setSidModel(model);
     };
     items.push_back(*sid_model);
+
+    // Sampled speech and drums written to the volume register need the voice DC
+    // that only the 6581 really has. Off makes an 8580 as quiet as a real one.
+    MenuItem* digi_boost   = new MenuItem();
+    digi_boost->id         = id_count++;
+    digi_boost->type       = MenuItemType::ACTION;
+    digi_boost->value_name = DIGI_BOOST_VALUE_NAME;
+    digi_boost->title      = digiBoostTitle(true);
+    menuDataStore->set(DIGI_BOOST_VALUE_NAME, true);
+    digi_boost->action = [this](MenuItem* item) {
+        (void)item;
+        MenuDataStore* menuDataStore = MenuDataStore::getInstance();
+        bool           on            = !menuDataStore->getBool(DIGI_BOOST_VALUE_NAME, true);
+        menuDataStore->set(DIGI_BOOST_VALUE_NAME, on);
+        c64emu->setSidDigiBoost(on);
+    };
+    items.push_back(*digi_boost);
 
     // Add menu items here
     MenuItem* reset_item = new MenuItem();

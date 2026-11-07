@@ -105,6 +105,7 @@ class C64Emu {
     ExternalCmds   externalCmds;
     bool           perf           = false;
     void           setSidModel(int model) { sid.setModel(model); }
+    void           setSidDigiBoost(bool enabled) { sid.setDigiBoost(enabled); }
     uint32_t       batteryVoltage = 0;
 
     void powerOff();

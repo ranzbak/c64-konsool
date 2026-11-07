@@ -108,6 +108,7 @@ void SID::init(uint8_t* memory, AudioCallback audio_callback, int SID_model)
     this->memory       = memory;
     // Setup the SID model
     this->SID_model[0] = this->SID_model[1] = this->SID_model[2] = SID_model;
+    updateDigiDC();
     // Setup the sample out callback
     this->audio_callback                                         = audio_callback;
 
@@ -128,6 +129,23 @@ void SID::setModel(int model)
         SID_model[i]    = model;
         prevlowpass[i]  = 0;
         prevbandpass[i] = 0;
+    }
+    updateDigiDC();
+}
+
+// A real 8580 has almost no voice DC, so $D418 digis are nearly silent on one.
+// The boost gives it the 6581's, as VICE's digi boost option does.
+void SID::setDigiBoost(bool enabled)
+{
+    ESP_LOGI("SID", "Digi boost %s", enabled ? "on" : "off");
+    digi_boost = enabled;
+    updateDigiDC();
+}
+
+void SID::updateDigiDC()
+{
+    for (int i = 0; i < 3; i++) {
+        digi_dc[i] = (SID_model[i] == SIDMODEL_6581 || digi_boost) ? DIGI_VOICE_DC : 0;
     }
 }
 
@@ -370,10 +388,14 @@ int IRAM_ATTR SID::cycle(unsigned char num,
 
         // routing the channel signal to either the filter or the unfiltered master output depending on filter-switch
         // SID-registers
-        if (sReg[0x17] & FILTSW[channel])
-            filtin += ((int)wfout - 0x8000) * envcnt[channel] / 256;
-        else if ((FILTSW[channel] != 4) || !(sReg[0x18] & OFF3_BITMASK))
-            nonfilt += ((int)wfout - 0x8000) * envcnt[channel] / 256;
+        // The voice's DC goes straight to the mixer, even for a filtered voice. On
+        // the chip it goes through the filter, but this filter's 6581 cutoff follows
+        // the voices, and DC fed through it modulated filtered 6581 music audibly.
+        if (sReg[0x17] & FILTSW[channel]) {
+            filtin  += ((int)wfout - 0x8000) * envcnt[channel] / 256;
+            nonfilt += digi_dc[num];
+        } else if ((FILTSW[channel] != 4) || !(sReg[0x18] & OFF3_BITMASK))
+            nonfilt += ((int)wfout - 0x8000) * envcnt[channel] / 256 + digi_dc[num];
     }
     // update readable SID1-registers (some SID tunes might use 3rd channel ENV3/OSC3 value as control)
     if (num == 0 && memory[1] & 3) {
@@ -437,6 +459,13 @@ int IRAM_ATTR SID::cycle(unsigned char num,
     // sound distorted anymore, and the volume-clicks disappear when setting SID-volume. (This is useful for fade-in/out
     // tunes like Hades Nebula, where clicking ruins the intro.)
     output = (nonfilt + filtout) * (sReg[0x18] & 0xF) / OUTPUT_SCALEDOWN;
+
+    // Block the DC before clipping, as the output capacitor does, so the offset
+    // that carries the digis does not use up the headroom.
+    ftmp             = output - dcblock_in[num] + DC_BLOCK_R * dcblock_out[num];
+    dcblock_in[num]  = output;
+    dcblock_out[num] = ftmp;
+    output           = (int32_t)ftmp;
     if (output >= 32767)
         output = 32767;
     else if (output <= -32768)
